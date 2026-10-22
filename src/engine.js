@@ -150,7 +150,11 @@
       assignedE += m.E[i];
     }
     let maxDev = 0, sumDev2 = 0, nonContig = 0, ppSum = 0, used = 0, withinPov = 0, splitB = 0;
-    const Ent = entropy(m.Pg); let H = 0, Dpov = 0;
+    const Ent = entropy(m.Pg); let H = 0, Dpov = 0, Hecon = 0;
+    const EntP = entropy([m.Ppov, 1 - m.Ppov]);
+    let usedE = 0, nUsed = 0; for (const s of D) if (s.units) { usedE += s.E; nUsed++; }
+    const cityAvg = usedE / Math.max(1, nUsed);
+    let maxDevCity = 0;
     const P = m.Ppov, E = assignedE || 1;
     let totPov = 0; D.forEach((s) => (totPov += s.pov));
     for (const s of D) {
@@ -158,6 +162,8 @@
       used++;
       s.dev = s.target > 0 ? (s.E - s.target) / s.target : 0;
       maxDev = Math.max(maxDev, Math.abs(s.dev)); sumDev2 += s.dev * s.dev;
+      s.devCity = cityAvg > 0 ? (s.E - cityAvg) / cityAvg : 0; s.cityAvg = cityAvg;
+      maxDevCity = Math.max(maxDevCity, Math.abs(s.devCity));
       s.pct = s.G.map((v) => (s.E ? v / s.E : 0));
       s.nativePct = s.E ? s.native / s.E : 0; s.povPct = s.E ? s.pov / s.E : 0; s.ellPct = s.E ? s.ell / s.E : 0; s.swdPct = s.E ? s.swd / s.E : 0;
       s.eni = s.E ? s.eniW / s.E : 0;
@@ -167,7 +173,10 @@
       s.comps = components(m, plan, s.d); if (s.comps > 1) nonContig++;
       if (s.boros.size > 1) splitB++;
       if (Math.abs(s.povPct - P) <= 0.1) withinPov++;
-      if (s.E > 0) H += s.E * (Ent - entropy(s.pct));
+      // local Theil terms: how much less diverse this district is than the city (0 = same as city; negative = more diverse)
+      s.raceH = Ent > 0 && s.E > 0 ? (Ent - entropy(s.pct)) / Ent : 0;
+      s.econH = EntP > 0 && s.E > 0 ? (EntP - entropy([s.povPct, 1 - s.povPct])) / EntP : 0;
+      if (s.E > 0) { H += s.E * (Ent - entropy(s.pct)); Hecon += s.E * (EntP - entropy([s.povPct, 1 - s.povPct])); }
       Dpov += Math.abs(s.pov / (totPov || 1) - (s.E - s.pov) / (E - totPov || 1));
     }
     return {
@@ -175,6 +184,7 @@
       summary: {
         K, used, maxDev, rmsDev: Math.sqrt(sumDev2 / Math.max(1, used)), nonContig, crossBoro: splitB,
         avgPP: ppSum / Math.max(1, used), theilH: Ent > 0 ? H / (E * Ent) : 0, dissimPov: Dpov / 2,
+        theilEcon: EntP > 0 ? Hecon / (E * EntP) : 0, maxDevCity, cityAvg,
         withinPov, changed: changedE / E, unassigned, unassignedE, totE: m.totE, Ppov: P, Pg: m.Pg,
       },
     };

@@ -45,7 +45,8 @@
     asian: { label: "% Asian" }, black: { label: "% Black" }, hisp: { label: "% Hispanic" }, white: { label: "% White" },
     multi: { label: "% Multiracial" }, native: { label: "% Native American" }, ell: { label: "% ELL / ENL" },
     swd: { label: "% Students with disabilities" }, pov: { label: "% In poverty" }, eni: { label: "Economic Need Index" },
-    dev: { label: "Enrollment vs. target", lo: -0.25, hi: 0.25 },
+    devCity: { label: "Enrollment vs. citywide average", lo: -0.5, hi: 0.5 },
+    dev: { label: "Enrollment vs. borough average", lo: -0.5, hi: 0.5 },
   };
   const GI = { asian: 0, black: 1, hisp: 2, white: 3, multi: 4 };
   function pct0(v) { return Math.round(v * 100) + "%"; }
@@ -158,13 +159,14 @@
   function districtValue(s, key) {
     if (!s || s.empty) return null;
     if (key === "pov") return s.povPct; if (key === "eni") return s.eni; if (key === "ell") return s.ellPct; if (key === "swd") return s.swdPct;
-    if (key === "native") return s.nativePct; if (key === "dev") return s.dev;
+    if (key === "native") return s.nativePct; if (key === "dev") return s.dev; if (key === "devCity") return s.devCity;
+    if (key === "raceH") return s.raceH; if (key === "econH") return s.econH;
     if (key in GI) return s.pct[GI[key]];
     return null;
   }
   // heat scale: 0 to the 95th percentile of the values being shown (rounded up to 5 points)
   function scaleFor(key, vals) {
-    if (key === "dev") return { lo: -0.25, hi: 0.25 };
+    if (key === "dev" || key === "devCity") return { lo: -0.5, hi: 0.5 };
     const v = vals.filter((x) => x != null).sort((a, b) => a - b);
     if (!v.length) return { lo: 0, hi: 1 };
     let hi = v[Math.min(v.length - 1, Math.floor(v.length * 0.95))];
@@ -174,7 +176,8 @@
   }
   function renderColors() {
     const key = S.colorBy, D = S.stats.districts;
-    const zone = S.level === "zone" && key !== "dev";
+    const isDev = key === "dev" || key === "devCity";
+    const zone = S.level === "zone" && !isDev;
     const vals = key === "district" ? [] : Array.from({ length: N }, (_, i) => (zone ? unitValue(i, key) : S.plan[i] >= 0 ? districtValue(D[S.plan[i]], key) : null));
     const sc = key === "district" ? null : scaleFor(key, zone ? vals : D.filter((x) => !x.empty).map((x) => districtValue(x, key)));
     for (let i = 0; i < N; i++) {
@@ -184,7 +187,7 @@
       else {
         const v = vals[i];
         if (v == null) c = districtColor(-1);
-        else if (key === "dev") c = div(v / sc.hi);
+        else if (isDev) c = div(v / sc.hi);
         else c = seq((v - sc.lo) / (sc.hi - sc.lo));
       }
       cellEls[i].style.fill = c;
@@ -205,12 +208,12 @@
     const L = $("legend");
     if (S.colorBy === "district") { L.hidden = true; return; }
     const def = COLOR_DEFS[S.colorBy], sc = S.scale; L.hidden = false;
-    const f = S.colorBy === "eni" ? (v) => v.toFixed(2) : (v) => (S.colorBy === "dev" && v > 0 ? "+" : "") + pct0(v);
+    const f = S.colorBy === "eni" ? (v) => v.toFixed(2) : (v) => ((S.colorBy === "dev" || S.colorBy === "devCity") && v > 0 ? "+" : "") + pct0(v);
     const stops = [];
-    for (let k = 0; k <= 10; k++) stops.push(S.colorBy === "dev" ? div((k / 10) * 2 - 1) : seq(k / 10));
-    const lvl = S.level === "zone" && S.colorBy !== "dev" ? "each zone" : "district average";
-    L.innerHTML = `<div><b>${def.label}</b> · ${lvl}</div><div class="bar" style="background:linear-gradient(90deg,${stops.join(",")})"></div><div class="ends"><span>${f(sc.lo)}${S.colorBy === "dev" ? " under" : ""}</span><span>${f(sc.hi)}${S.colorBy === "dev" ? " over" : "+"}</span></div>` +
-      (S.level === "zone" && S.colorBy !== "dev" ? `<div class="ends" style="margin-top:2px"><span>Gray: no counted students</span></div>` : "");
+    for (let k = 0; k <= 10; k++) stops.push((S.colorBy === "dev" || S.colorBy === "devCity") ? div((k / 10) * 2 - 1) : seq(k / 10));
+    const lvl = S.level === "zone" && !(S.colorBy === "dev" || S.colorBy === "devCity") ? "each zone" : "district average";
+    L.innerHTML = `<div><b>${def.label}</b> · ${lvl}</div><div class="bar" style="background:linear-gradient(90deg,${stops.join(",")})"></div><div class="ends"><span>${f(sc.lo)}${(S.colorBy === "dev" || S.colorBy === "devCity") ? " under" : ""}</span><span>${f(sc.hi)}${(S.colorBy === "dev" || S.colorBy === "devCity") ? " over" : "+"}</span></div>` +
+      (S.level === "zone" && !(S.colorBy === "dev" || S.colorBy === "devCity") ? `<div class="ends" style="margin-top:2px"><span>Gray: no counted students</span></div>` : "");
   }
   function renderLabels() {
     gLabels.textContent = "";
@@ -236,10 +239,11 @@
     const s = S.stats.summary, b = S.base.summary;
     const pts = (v) => (v * 100).toFixed(1);
     const rows = [
-      ["Largest size gap", "Farthest any district is from its target enrollment", "±" + pct0(s.maxDev), chip(s.maxDev - b.maxDev, true, (v) => Math.round(v * 100) + " pts", 0.005)],
+      ["Largest gap from citywide average", `Average district: ${fmtN(s.cityAvg)} ${countShort()}`, "±" + pct0(s.maxDevCity), chip(s.maxDevCity - b.maxDevCity, true, (v) => Math.round(v * 100) + " pts", 0.005)],
+      ...(S.lock ? [["Largest gap within a borough", "Compared with the average district in the same borough", "±" + pct0(s.maxDev), chip(s.maxDev - b.maxDev, true, (v) => Math.round(v * 100) + " pts", 0.005)]] : []),
       ["Compactness", "Average Polsby-Popper, higher is rounder", s.avgPP.toFixed(2), chip(s.avgPP - b.avgPP, false, (v) => v.toFixed(2), 0.005)],
       ["Racial/ethnic segregation", "Theil's H, lower is more integrated", s.theilH.toFixed(3), chip(s.theilH - b.theilH, true, (v) => v.toFixed(3), 0.0005)],
-      ["Economic segregation", "Dissimilarity index for poverty, lower is more even", s.dissimPov.toFixed(3), chip(s.dissimPov - b.dissimPov, true, (v) => v.toFixed(3), 0.0005)],
+      ["Economic segregation", "Theil's H for poverty, lower is more even", s.theilEcon.toFixed(3), chip(s.theilEcon - b.theilEcon, true, (v) => v.toFixed(3), 0.0005)],
       ["Districts near city poverty rate", `Within 10 points of the ${pct0(s.Ppov)} rate for counted students`, `${s.withinPov} of ${s.used}`, chip(s.withinPov - b.withinPov, false, (v) => v, 0.5)],
       ["Students moved", "Counted students whose school would be in a different district than today", pct0(s.changed), ""],
       ["Districts in pieces", "Zones not connected to the rest of their district", String(s.nonContig), s.nonContig ? `<span class="pill bad">fix</span>` : `<span class="pill good">none</span>`],
@@ -262,17 +266,18 @@
       b.style.background = districtColor(d);
       b.setAttribute("aria-pressed", d === S.active ? "true" : "false");
       const s = D[d]; const bar = b.querySelector(".d");
-      const dev = s && !s.empty ? s.dev : -1;
+      const dev = s && !s.empty ? s.devCity : -1;
       bar.style.background = Math.abs(dev) <= 0.05 ? "var(--good)" : Math.abs(dev) <= 0.15 ? "var(--warn)" : "var(--bad)";
-      b.title = s && !s.empty ? `District ${d + 1}: ${fmtN(s.E)} ${countShort()} (${dev > 0 ? "+" : ""}${pct0(dev)} vs. target)` : `District ${d + 1}: empty`;
+      b.title = s && !s.empty ? `District ${d + 1}: ${fmtN(s.E)} ${countShort()} (${dev > 0 ? "+" : ""}${pct0(dev)} vs. citywide average)` : `District ${d + 1}: empty`;
     });
   }
   const COLS = [
-    ["d", "Dist"], ["boro", "Boro"], ["E", "Students"], ["dev", "vs target"], ["asian", "Asian"], ["black", "Black"], ["hisp", "Hisp."], ["white", "White"], ["multi", "Multi"],
-    ["pov", "Poverty"], ["eni", "ENI"], ["ell", "ELL"], ["swd", "SWD"], ["ns", "Schools"], ["pp", "Compact"],
+    ["d", "Dist"], ["boro", "Boro"], ["E", "Students"], ["devCity", "vs city avg"], ["dev", "vs boro avg"], ["asian", "Asian"], ["black", "Black"], ["hisp", "Hisp."], ["white", "White"], ["multi", "Multi"],
+    ["pov", "Poverty"], ["eni", "ENI"], ["ell", "ELL"], ["swd", "SWD"], ["raceH", "Race H"], ["econH", "Econ H"], ["ns", "Schools"], ["pp", "Compact"],
   ];
   function renderTable() {
     const D = S.stats.districts.filter((s) => !s.empty);
+    const cols = COLS.filter(([k]) => k !== "dev" || S.lock);
     const val = (s, k) => k === "d" ? s.d : k === "boro" ? s.boro : k === "E" ? s.E : k === "ns" ? s.ns : k === "pp" ? s.pp : districtValue(s, k);
     D.sort((a, b) => (val(a, S.sort.key) - val(b, S.sort.key)) * S.sort.dir);
     const cell = (s, k) => {
@@ -280,13 +285,20 @@
       if (k === "d") return `<span class="sw" style="background:${districtColor(s.d)}"></span>${s.d + 1}${s.comps > 1 ? ' <span class="bad-t" title="In pieces">⚠</span>' : ""}`;
       if (k === "boro") return E.BOROS[s.boro] || "–";
       if (k === "E" || k === "ns") return fmtN(v);
-      if (k === "dev") return `<span class="${Math.abs(v) > 0.15 ? "bad-t" : Math.abs(v) > 0.05 ? "warn-t" : ""}">${v > 0 ? "+" : ""}${pct0(v)}</span>`;
+      if (k === "raceH" || k === "econH") return v.toFixed(3);
+      if (k === "dev" || k === "devCity") return `<span class="${Math.abs(v) > 0.15 ? "bad-t" : Math.abs(v) > 0.05 ? "warn-t" : ""}">${v > 0 ? "+" : ""}${pct0(v)}</span>`;
       if (k === "pp") return v.toFixed(2);
       return pct0(v);
     };
     const b = S.stats.summary;
-    const cityRow = `<tr style="cursor:default"><td><b>City</b></td><td></td><td>${fmtN(b.totE - b.unassignedE)}</td><td></td>${b.Pg.slice(0, 5).map((v) => `<td>${pct0(v)}</td>`).join("")}<td>${pct0(b.Ppov)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
-    $("dtable").innerHTML = `<thead><tr>${COLS.map(([k, l]) => `<th data-k="${k}"${k === "E" ? ` title="${countShort()}"` : ""}>${l}${S.sort.key === k ? (S.sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead><tbody>${cityRow}${D.map((s) => `<tr data-d="${s.d}" class="${s.d === S.active ? "sel" : ""}">${COLS.map(([k]) => `<td>${cell(s, k)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    const cityVal = { d: "<b>City</b>", E: fmtN(b.totE - b.unassignedE), devCity: `avg ${fmtN(b.cityAvg)}`,
+      asian: pct0(b.Pg[0]), black: pct0(b.Pg[1]), hisp: pct0(b.Pg[2]), white: pct0(b.Pg[3]), multi: pct0(b.Pg[4]), pov: pct0(b.Ppov),
+      raceH: `<b>${b.theilH.toFixed(3)}</b>`, econH: `<b>${b.theilEcon.toFixed(3)}</b>` };
+    const cityRow = `<tr style="cursor:default">${cols.map(([k]) => `<td>${cityVal[k] || ""}</td>`).join("")}</tr>`;
+    const tips = { devCity: "Difference from the average district citywide", dev: "Difference from the average district in the same borough",
+      raceH: "How much less racially/ethnically diverse than the city (0 = same mix as the city; below 0 = more diverse). City row = Theil's H for the plan.",
+      econH: "How much less economically mixed than the city (0 = same poverty rate as the city). City row = Theil's H for the plan.", E: countShort() };
+    $("dtable").innerHTML = `<thead><tr>${cols.map(([k, l]) => `<th data-k="${k}"${tips[k] ? ` title="${tips[k]}"` : ""}>${l}${S.sort.key === k ? (S.sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead><tbody>${cityRow}${D.map((s) => `<tr data-d="${s.d}" class="${s.d === S.active ? "sel" : ""}">${cols.map(([k]) => `<td>${cell(s, k)}</td>`).join("")}</tr>`).join("")}</tbody>`;
   }
   $("dtable").addEventListener("click", (e) => {
     const th = e.target.closest("th");
@@ -298,7 +310,7 @@
     $("brushSw").style.background = S.tool === "erase" ? "transparent" : districtColor(S.active);
     const s = S.stats && S.stats.districts[S.active];
     const what = S.tool === "erase" ? "Erasing" : S.tool === "pan" ? "Panning" : `District ${S.active + 1}`;
-    const extra = S.tool === "paint" && s && !s.empty ? ` · ${fmtN(s.E)} ${countShort()} (${s.dev > 0 ? "+" : ""}${pct0(s.dev)} vs. target)` : "";
+    const extra = S.tool === "paint" && s && !s.empty ? ` · ${fmtN(s.E)} ${countShort()} (${s.devCity > 0 ? "+" : ""}${pct0(s.devCity)} vs. citywide average)` : "";
     $("brushTxt").textContent = what + extra + (S.brush > 1 && S.tool !== "pan" ? " · wide brush" : "");
   }
 
@@ -531,7 +543,7 @@
       if (opt.score > best) { S.plan.set(bestPlan); S.pin.set(bestPin); } else best = opt.score;
       recompute();
       $("optMsg").textContent = best < startScore - 0.05
-        ? `Done. Largest size gap ±${pct0(before.maxDev)} → ±${pct0(S.stats.summary.maxDev)}, racial segregation ${before.theilH.toFixed(3)} → ${S.stats.summary.theilH.toFixed(3)}, economic ${before.dissimPov.toFixed(3)} → ${S.stats.summary.dissimPov.toFixed(3)}. Undo restores the previous map.`
+        ? `Done. largest gap from the citywide average ±${pct0(before.maxDevCity)} → ±${pct0(S.stats.summary.maxDevCity)}, racial segregation ${before.theilH.toFixed(3)} → ${S.stats.summary.theilH.toFixed(3)}, economic ${before.theilEcon.toFixed(3)} → ${S.stats.summary.theilEcon.toFixed(3)}. Undo restores the previous map.`
         : `Done. No better map found with these settings. Try different weights or a higher effort.`;
       $("runOpt").disabled = false; $("stopOpt").disabled = true; running = null;
     };

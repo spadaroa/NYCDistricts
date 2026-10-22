@@ -63,7 +63,8 @@
             <label for="colorBy" style="font-size:13px">Shade zones by</label>
             <select id="colorBy">
               <option value="district">District</option>
-              <option value="dev">Size vs. target</option>
+              <option value="devCity">Size vs. citywide average</option>
+              <option value="dev">Size vs. borough average</option>
               <optgroup label="Student subgroups">
                 <option value="asian">% Asian</option>
                 <option value="black">% Black</option>
@@ -91,7 +92,7 @@
       </section>
 
       <section class="pane" data-pane="districts" hidden>
-        <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. Targets use each borough's average when districts stay within boroughs.</p>
+        <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. “vs city avg” compares each district with the average district citywide. “vs boro avg” compares it with the average district in its own borough (shown while districts stay inside boroughs). Race H and Econ H show how much less mixed a district is than the city: 0 means the same mix as the city, and below 0 means more mixed. The City row gives Theil's H for the whole plan.</p>
         <div class="tablewrap"><table class="dt" id="dtable"></table></div>
       </section>
 
@@ -103,7 +104,7 @@
         <div class="field"><label for="wRace">Racial/ethnic mix (near city average)</label><output id="oRace"></output><input type="range" id="wRace" min="0" max="10" step="0.1" value="0"></div>
         <div class="field"><label for="wChange">Keep today's lines</label><output id="oChange"></output><input type="range" id="wChange" min="0" max="10" step="0.1" value="0"></div>
         <div class="row">
-          <label for="maxDev" style="font-size:13px">Size limit ±</label>
+          <label for="maxDev" style="font-size:13px" title="Measured against the borough average while districts stay inside boroughs, otherwise the citywide average">Size limit ±</label>
           <select id="maxDev"><option value="0.03">3%</option><option value="0.05" selected>5%</option><option value="0.1">10%</option><option value="0.2">20%</option><option value="9">No limit</option></select>
           <label for="effort" style="font-size:13px">Effort</label>
           <select id="effort"><option value="150000">Quick</option><option value="600000" selected>Normal</option><option value="1500000">Thorough</option></select>
@@ -150,10 +151,11 @@
           <p>A few schools report to a different district than the one they sit in, such as Beacon High School (District 3, located in District 2). They don't change the map. By default they are counted in the district they report to. Once you move the zone they sit in, they move with that zone.</p>
           <p>The scorecard compares your plan with today's districts, counting the same schools:</p>
           <ul>
-            <li><b>Largest size gap</b>: how far the biggest or smallest district is from its target enrollment.</li>
+            <li><b>Largest gap from citywide average</b>: how far the biggest or smallest district is from the average district citywide (counted students ÷ number of districts).</li>
+            <li><b>Largest gap within a borough</b>: the same, compared with the average district in its own borough. Staten Island's single district is always 0% here, so use the citywide figure to compare across boroughs.</li>
             <li><b>Compactness</b>: average Polsby-Popper score (1 = a circle). Shorelines lower every score, so compare plans with each other.</li>
             <li><b>Racial/ethnic segregation</b>: Theil's H across districts (0 = every district matches the city mix).</li>
-            <li><b>Economic segregation</b>: dissimilarity index between students in and not in poverty (0 = even spread).</li>
+            <li><b>Economic segregation</b>: Theil's H for students in and not in poverty (0 = every district has the city's poverty rate).</li>
             <li><b>Students moved</b>: share of counted students whose school would be in a different district number than today.</li>
           </ul>
         </div>

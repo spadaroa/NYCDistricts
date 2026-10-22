@@ -363,7 +363,34 @@
         ids.forEach((i, j) => { const ww = w[j]; sx[lab[j]] += m.x[i] * ww; sy[lab[j]] += m.y[i] * ww; sw[lab[j]] += ww; });
         for (let c = 0; c < k; c++) if (sw[c]) { cx[c] = sx[c] / sw[c]; cy[c] = sy[c] / sw[c]; }
       }
-      ids.forEach((i, j) => (plan[i] = next + lab[j]));
+      // grow districts outward from the zone nearest each center, always expanding the smallest district,
+      // so every district starts connected and roughly equal in size (k-means alone can strand areas like the Rockaways)
+      const inB = new Uint8Array(m.n); ids.forEach((i) => (inB[i] = 1));
+      const load = new Float64Array(k), used = new Set();
+      for (let c = 0; c < k; c++) {
+        let best = -1, bd = Infinity;
+        for (const i of ids) { if (used.has(i)) continue; const dx = m.x[i] - cx[c], dy = m.y[i] - cy[c], dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = i; } }
+        used.add(best); plan[best] = next + c; load[c] += m.E[best];
+      }
+      let remaining = ids.length - k;
+      while (remaining > 0) {
+        const order = [...Array(k).keys()].sort((a, b) => load[a] - load[b]);
+        let grew = false;
+        for (const c of order) {
+          let best = -1, bd = Infinity;
+          for (const i of ids) {
+            if (plan[i] !== next + c) continue;
+            for (let q = m.nbStart[i]; q < m.nbStart[i + 1]; q++) {
+              const j = m.nb[q]; if (!inB[j] || plan[j] !== -1) continue;
+              const dx = m.x[j] - cx[c], dy = m.y[j] - cy[c], dd = dx * dx + dy * dy;
+              if (dd < bd) { bd = dd; best = j; }
+            }
+          }
+          if (best >= 0) { plan[best] = next + c; load[c] += m.E[best]; remaining--; grew = true; break; }
+        }
+        if (!grew) break;
+      }
+      for (const i of ids) if (plan[i] === -1) plan[i] = -2; // unreachable within the borough: repair attaches them
       next += k;
     }
     repair(m, plan, K);
@@ -387,16 +414,21 @@
         changed = true;
       }
       // fill -2 from neighbors (same borough first)
-      let left = true;
-      while (left) {
-        left = false; let progress = false;
-        for (let i = 0; i < m.n; i++) {
-          if (plan[i] !== -2) continue;
-          let best = -1;
-          for (let k = m.nbStart[i]; k < m.nbStart[i + 1]; k++) { const b = m.nb[k]; if (plan[b] >= 0 && (best < 0 || m.boro[b] === m.boro[i])) best = plan[b]; }
-          if (best >= 0) { plan[i] = best; progress = true; } else left = true;
+      // fill orphans from same-borough neighbors first; only fall back to another borough if nothing else is possible
+      for (const sameOnly of [true, false]) {
+        let progress = true;
+        while (progress) {
+          progress = false;
+          for (let i = 0; i < m.n; i++) {
+            if (plan[i] !== -2) continue;
+            let best = -1;
+            for (let k = m.nbStart[i]; k < m.nbStart[i + 1]; k++) {
+              const b = m.nb[k];
+              if (plan[b] >= 0 && (!sameOnly || m.boro[b] === m.boro[i])) { best = plan[b]; if (m.boro[b] === m.boro[i]) break; }
+            }
+            if (best >= 0) { plan[i] = best; progress = true; }
+          }
         }
-        if (!progress) break;
       }
       if (!changed) break;
     }

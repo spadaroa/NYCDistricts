@@ -10,7 +10,7 @@ const P = [
   { id: 'econ', name: 'Economic balance', desc: 'Equal size, but optimized so each district\'s share of students in poverty is as close to the citywide rate as geography allows.', weights: { pop: 0.2, compact: 0.5, econ: 5 } },
   { id: 'race', name: 'Racial/ethnic integration', desc: 'Equal size, optimized so each district\'s racial/ethnic mix mirrors the city (minimizes the Theil segregation index).', weights: { pop: 0.2, compact: 0.5, race: 5 } },
   { id: 'blend', name: 'Balanced blend', desc: 'A middle path: equal size, reasonably compact, with moderate weight on both economic and racial/ethnic balance.', weights: { pop: 0.3, compact: 1, econ: 3, race: 3 } },
-  { id: 'minchange', name: 'Fix sizes, minimal change', desc: 'Starts from today\'s map and keeps each borough\'s current number of districts, moving as few students as possible to bring each district within 5% of its borough average.', weights: { pop: 0.3, compact: 0.3, change: 5 }, fromCurrent: true },
+  { id: 'minchange', name: 'Fix sizes, minimal change', desc: 'Starts from today\'s map and keeps each borough\'s current number of districts, moving as few students as possible to bring each district close to its borough average: within 5% everywhere except Manhattan, where single zones hold up to 1,900 students and the closest fit is 8%.', weights: { pop: 0.3, compact: 0.3, change: 5 }, fromCurrent: true },
 ];
 const out = [];
 for (const p of P) {
@@ -18,11 +18,11 @@ for (const p of P) {
   if (!p.weights) { plan = E.currentPlan(m); pin.fill(1); }
   else {
     let best = null;
-    for (const seed of [3, 7, 19]) {
+    for (const seed of [3, 7, 19, 23, 41]) {
       const pl = p.fromCurrent ? E.currentPlan(m) : E.seedPlan(m, K, seed, true);
       const pn = new Uint8Array(m.n).fill(p.fromCurrent ? 1 : 0);
       const o = new E.Optimizer(m, pl, K, { weights: p.weights, seed: seed * 13, maxDev: 0.05, lock: true, pin: pn });
-      const sc = o.anneal(1000000, 2, 0.005);
+      const sc = o.anneal(3000000, 2, 0.003);
       if (!best || sc < best.sc) best = { sc, pl, pn };
     }
     plan = p.fromCurrent ? best.pl : E.relabelToCurrent(m, best.pl, K); pin = best.pn;

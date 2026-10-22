@@ -12,7 +12,7 @@ import json, math, sys, os
 from collections import defaultdict, Counter
 import pandas as pd
 import shapely
-from shapely.geometry import shape, Point, MultiPoint
+from shapely.geometry import shape, Point, MultiPoint, Polygon
 from shapely.ops import unary_union, nearest_points
 from shapely.strtree import STRtree
 
@@ -147,6 +147,12 @@ print("buildings where the first geocode was replaced:", len(fixed))
 ZONES = f"{RAW}/zones/cmjf-yawu.geojson"   # School Zones 2024-2025 (Elementary School), NYC Open Data
 zf = json.load(open(ZONES))["features"]
 pieces = []  # dict(geom, gd, zone)
+def solid(g, w=6, min_area=3000):
+    """Remove thin strips (narrower than ~2*w metres) and tiny parts, so zones can't touch far-away
+    zones through slivers left where DOE zone lines and DCP district lines don't match."""
+    g = g.buffer(0).buffer(-w).buffer(w)
+    parts = [q for q in (g.geoms if hasattr(g, "geoms") else [g]) if q.geom_type == "Polygon" and q.area >= min_area]
+    return unary_union(parts) if parts else Polygon()
 for f in zf:
     pr = f["properties"]
     g = shapely.transform(shape(f["geometry"]), lambda a: [proj(x, y) for x, y in a]).buffer(0)
@@ -154,8 +160,8 @@ for f in zf:
     zone = dict(dbn=label, remarks=(pr.get("remarks") or "").strip(), zd=pr.get("zoned_dist"))
     for d in dtree_keys:
         if not g.intersects(dpolys[d]): continue
-        part = g.intersection(dpolys[d]).buffer(0)
-        if part.area < 5000: continue        # slivers where DOE zone and DCP district lines differ slightly
+        part = solid(g.intersection(dpolys[d]))
+        if part.is_empty or part.area < 5000: continue   # slivers where DOE zone and DCP district lines differ slightly
         pieces.append(dict(geom=part, gd=d, zone=zone))
 print("zone pieces:", len(pieces), "from", len(zf), "zones")
 # land not covered by any zone (parks, marsh, slivers): merge into the neighboring piece in the same district
@@ -163,12 +169,12 @@ merged_gaps = 0
 for d in dtree_keys:
     mine = [p for p in pieces if p["gd"] == d]
     covered = unary_union([p["geom"] for p in mine]) if mine else None
-    gap = dpolys[d].difference(covered) if covered is not None else dpolys[d]
+    gap = solid(dpolys[d].difference(covered), w=10, min_area=2000) if covered is not None else dpolys[d]
     for gp in (gap.geoms if hasattr(gap, "geoms") else [gap]):
         if gp.geom_type != "Polygon" or gp.area < 2000: continue
         best = max(mine, key=lambda p: p["geom"].buffer(10).intersection(gp).area, default=None)
         if best is not None and best["geom"].buffer(10).intersects(gp):
-            best["geom"] = unary_union([best["geom"], gp]).buffer(0); merged_gaps += 1
+            best["geom"] = unary_union([best["geom"], gp.buffer(1)]).buffer(0); merged_gaps += 1
         elif gp.area > 50000:
             pieces.append(dict(geom=gp, gd=d, zone=dict(dbn="", remarks="Not in any elementary zone", zd=None)))
 print("gaps merged into neighboring zones:", merged_gaps)
@@ -198,6 +204,7 @@ print("units:", len(units), "buildings placed by nearest zone:", unplaced, "LCGM
 for m in geo_mismatch[:30]: print("  ", m)
 
 # adjacency + shared edges
+MIN_SHARED = 100  # metres; shorter contacts are corner touches or slivers where DOE and DCP lines differ
 tree = STRtree(cells)
 edges, nbr = [], defaultdict(dict)
 for i, g in enumerate(cells):
@@ -211,8 +218,9 @@ for i, g in enumerate(cells):
         if inter.geom_type not in ("LineString", "MultiLineString"):
             inter = shapely.MultiLineString([q for q in getattr(inter, "geoms", []) if q.geom_type == "LineString"])
             if inter.is_empty or inter.length < 5: continue
-        nbr[i][j] = inter.length; nbr[j][i] = inter.length
-        edges.append((i, j, inter))
+        edges.append((i, j, inter))   # every shared border is drawn
+        if inter.length >= MIN_SHARED:  # but zones only count as neighbors if they share a real stretch of border
+            nbr[i][j] = inter.length; nbr[j][i] = inter.length
 # connect pieces split by water inside a borough (nearest pair)
 virtual = []
 def comps(ids):

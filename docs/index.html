@@ -62,7 +62,7 @@ select, .btn, input[type="number"] {
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
-.main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; min-height: 0; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w, 400px); min-height: 0; }
 .mapwrap { position: relative; min-height: 0; background: var(--water); overflow: hidden; }
 #map { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
 #map .cell { stroke: var(--surface); stroke-width: 0.35; vector-effect: non-scaling-stroke; }
@@ -93,7 +93,17 @@ select, .btn, input[type="number"] {
 .tip .s { color: var(--muted); }
 .tip ul { margin: 4px 0 0; padding-left: 16px; }
 
-aside.panel { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+aside.panel { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; position: relative; }
+.resizer { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 6; touch-action: none; }
+.resizer::after { content: ""; position: absolute; left: 4px; top: 50%; width: 2px; height: 44px; margin-top: -22px; border-radius: 2px; background: var(--line); }
+.resizer:hover::after, .resizer.drag::after { background: var(--accent); height: 100%; top: 0; margin-top: 0; }
+.tabsbar { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+.tabsbar .tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.expand { display: inline-flex; align-items: center; gap: 6px; border: 0; border-left: 1px solid var(--line); background: none; padding: 0 12px; color: var(--muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.expand:hover { color: var(--ink); }
+.expand svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.expand[aria-pressed="true"] svg { transform: scaleX(-1); }
+.disclaimer { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--chip); font-size: 13px; line-height: 1.5; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); padding: 0 8px; gap: 2px; overflow-x: auto; }
 .tabs button { border: 0; background: none; padding: 12px 10px 10px; border-bottom: 2px solid transparent; color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
@@ -144,6 +154,8 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
   .main { grid-template-columns: 1fr; grid-template-rows: 58vh auto; }
   .app { height: auto; min-height: 100%; }
   aside.panel { border-left: 0; border-top: 1px solid var(--line); }
+  .main { grid-template-columns: 1fr !important; }
+  .resizer, .expand { display: none; }
   .pane { overflow: visible; }
   .preset { margin-left: 0; width: 100%; }
   .preset select { flex: 1; min-width: 0; }
@@ -186,6 +198,8 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
 .explainer summary { cursor: pointer; font-size: 13px; font-weight: 600; }
 .explainer[open] summary { margin-bottom: 8px; }
 .explainer p:last-child { margin: 0 0 4px; }
+.brushchip { max-width: calc(100% - 80px); }
+.brushchip #brushTxt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 </style></head><body>
 <div class="app">
   <header class="top">
@@ -219,12 +233,16 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
       <div class="tip" id="tip" hidden></div>
     </div>
     <aside class="panel">
+      <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize · double-click to expand or collapse"></div>
+      <div class="tabsbar">
       <div class="tabs" role="tablist">
         <button role="tab" aria-selected="true" data-tab="plan">Plan</button>
         <button role="tab" aria-selected="false" data-tab="districts">Districts</button>
         <button role="tab" aria-selected="false" data-tab="balance">Auto-balance</button>
         <button role="tab" aria-selected="false" data-tab="share">Save &amp; share</button>
         <button role="tab" aria-selected="false" data-tab="about">About</button>
+      </div>
+      <button class="expand" id="expandBtn" aria-pressed="false" title="Widen the panel over the map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l-6 6 6 6M4 12h11M20 4v16"/></svg><span>Expand</span></button>
       </div>
 
       <section class="pane" data-pane="plan">
@@ -343,6 +361,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
       </section>
 
       <section class="pane about" data-pane="about" hidden>
+        <p class="disclaimer"><b>A personal project.</b> This tool is an independent, personal project. It is not affiliated with, produced by, or endorsed by New York City Public Schools (the NYC Department of Education). It uses only publicly available data, and the plans in it are illustrations, not proposals.</p>
         <div>
           <h2>How it works</h2>
           <p>The map is built from DOE's elementary school attendance zones (2024–25). Where a zone crosses a community district line it is split at the official DCP line, so today's districts match the official map exactly. Land outside every zone (parks, marshes) is joined to the next zone in the same district. Districts are made by moving whole zones; every school inside a zone moves with it.</p>
@@ -1493,6 +1512,33 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
   let toastT = 0;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2600); }
 
+  // ---------- resizable side panel ----------
+  const mainEl = document.querySelector(".main");
+  const PANEL_MIN = 340, NORMAL_W = 400;
+  const panelMax = () => Math.max(PANEL_MIN, window.innerWidth - 220);
+  const wideW = () => Math.min(panelMax(), 1240);
+  function applyPanel(w) {
+    S.panelW = Math.max(PANEL_MIN, Math.min(panelMax(), w || NORMAL_W));
+    mainEl.style.setProperty("--panel-w", S.panelW + "px");
+    const wide = S.panelW > NORMAL_W + 40;
+    $("expandBtn").setAttribute("aria-pressed", wide);
+    $("expandBtn").querySelector("span").textContent = wide ? "Collapse" : "Expand";
+    $("expandBtn").title = wide ? "Shrink the panel back" : "Widen the panel over the map";
+    requestAnimationFrame(() => setView(view));
+    try { localStorage.setItem(STORE + ".panel", String(S.panelW)); } catch (_) {}
+  }
+  function togglePanel() { applyPanel(S.panelW > NORMAL_W + 40 ? NORMAL_W : wideW()); }
+  $("expandBtn").onclick = togglePanel;
+  $("resizer").addEventListener("dblclick", togglePanel);
+  $("resizer").addEventListener("pointerdown", (e) => {
+    e.preventDefault(); const r = $("resizer"); r.setPointerCapture(e.pointerId); r.classList.add("drag");
+    const right = mainEl.getBoundingClientRect().right;
+    const move = (ev) => applyPanel(right - ev.clientX);
+    const up = () => { r.classList.remove("drag"); r.removeEventListener("pointermove", move); r.removeEventListener("pointerup", up); r.removeEventListener("pointercancel", up); };
+    r.addEventListener("pointermove", move); r.addEventListener("pointerup", up); r.addEventListener("pointercancel", up);
+  });
+  try { applyPanel(+localStorage.getItem(STORE + ".panel") || NORMAL_W); } catch (_) { applyPanel(NORMAL_W); }
+
   // ---------- boot ----------
   $("yearTxt").textContent = DATA.meta.year; $("rosterTxt").textContent = DATA.meta.pulled || "October 2026";
   const nSchools = DATA.schools.length;
@@ -1500,7 +1546,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
   rebuildModel(); renderGroups(); syncWeights();
   if (!restore()) loadPreset("current");
   S.undo = []; S.redo = [];
-  fit(); window.addEventListener("resize", () => fit());
+  fit(); window.addEventListener("resize", () => { applyPanel(S.panelW); fit(); });
   if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => recompute());
   new MutationObserver(() => recompute()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 })();

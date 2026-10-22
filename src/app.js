@@ -618,6 +618,33 @@
   let toastT = 0;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2600); }
 
+  // ---------- resizable side panel ----------
+  const mainEl = document.querySelector(".main");
+  const PANEL_MIN = 340, NORMAL_W = 400;
+  const panelMax = () => Math.max(PANEL_MIN, window.innerWidth - 220);
+  const wideW = () => Math.min(panelMax(), 1240);
+  function applyPanel(w) {
+    S.panelW = Math.max(PANEL_MIN, Math.min(panelMax(), w || NORMAL_W));
+    mainEl.style.setProperty("--panel-w", S.panelW + "px");
+    const wide = S.panelW > NORMAL_W + 40;
+    $("expandBtn").setAttribute("aria-pressed", wide);
+    $("expandBtn").querySelector("span").textContent = wide ? "Collapse" : "Expand";
+    $("expandBtn").title = wide ? "Shrink the panel back" : "Widen the panel over the map";
+    requestAnimationFrame(() => setView(view));
+    try { localStorage.setItem(STORE + ".panel", String(S.panelW)); } catch (_) {}
+  }
+  function togglePanel() { applyPanel(S.panelW > NORMAL_W + 40 ? NORMAL_W : wideW()); }
+  $("expandBtn").onclick = togglePanel;
+  $("resizer").addEventListener("dblclick", togglePanel);
+  $("resizer").addEventListener("pointerdown", (e) => {
+    e.preventDefault(); const r = $("resizer"); r.setPointerCapture(e.pointerId); r.classList.add("drag");
+    const right = mainEl.getBoundingClientRect().right;
+    const move = (ev) => applyPanel(right - ev.clientX);
+    const up = () => { r.classList.remove("drag"); r.removeEventListener("pointermove", move); r.removeEventListener("pointerup", up); r.removeEventListener("pointercancel", up); };
+    r.addEventListener("pointermove", move); r.addEventListener("pointerup", up); r.addEventListener("pointercancel", up);
+  });
+  try { applyPanel(+localStorage.getItem(STORE + ".panel") || NORMAL_W); } catch (_) { applyPanel(NORMAL_W); }
+
   // ---------- boot ----------
   $("yearTxt").textContent = DATA.meta.year; $("rosterTxt").textContent = DATA.meta.pulled || "October 2026";
   const nSchools = DATA.schools.length;
@@ -625,7 +652,7 @@
   rebuildModel(); renderGroups(); syncWeights();
   if (!restore()) loadPreset("current");
   S.undo = []; S.redo = [];
-  fit(); window.addEventListener("resize", () => fit());
+  fit(); window.addEventListener("resize", () => { applyPanel(S.panelW); fit(); });
   if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => recompute());
   new MutationObserver(() => recompute()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 })();

@@ -30,12 +30,16 @@
       <div class="tip" id="tip" hidden></div>
     </div>
     <aside class="panel">
+      <div class="resizer" id="resizer" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize · double-click to expand or collapse"></div>
+      <div class="tabsbar">
       <div class="tabs" role="tablist">
         <button role="tab" aria-selected="true" data-tab="plan">Plan</button>
         <button role="tab" aria-selected="false" data-tab="districts">Districts</button>
         <button role="tab" aria-selected="false" data-tab="balance">Auto-balance</button>
         <button role="tab" aria-selected="false" data-tab="share">Save &amp; share</button>
         <button role="tab" aria-selected="false" data-tab="about">About</button>
+      </div>
+      <button class="expand" id="expandBtn" aria-pressed="false" title="Widen the panel over the map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l-6 6 6 6M4 12h11M20 4v16"/></svg><span>Expand</span></button>
       </div>
 
       <section class="pane" data-pane="plan">
@@ -154,6 +158,7 @@
       </section>
 
       <section class="pane about" data-pane="about" hidden>
+        <p class="disclaimer"><b>A personal project.</b> This tool is an independent, personal project. It is not affiliated with, produced by, or endorsed by New York City Public Schools (the NYC Department of Education). It uses only publicly available data, and the plans in it are illustrations, not proposals.</p>
         <div>
           <h2>How it works</h2>
           <p>The map is built from DOE's elementary school attendance zones (2024–25). Where a zone crosses a community district line it is split at the official DCP line, so today's districts match the official map exactly. Land outside every zone (parks, marshes) is joined to the next zone in the same district. Districts are made by moving whole zones; every school inside a zone moves with it.</p>

@@ -7,11 +7,11 @@ const OUT = data.units.map((u, i) => (u.s.some((si) => data.schools[si][AD] && d
 const AIM = 'Each district aims to be within 5% of its borough\'s average size; larger building blocks may not get there, so check the scorecard.';
 const P = [
   { id: 'current', name: 'Today\'s districts (2025–26)', desc: "The 32 community school districts as they exist today. They are very unequal in size: the largest has several times the enrollment of the smallest. Schools located outside their own district (like Beacon High School, District 3, located in District 2) are counted in the district they report to.", weights: null },
-  { id: 'equal', name: 'Example: equal size, compact', desc: 'A computer-generated example, redrawn from scratch with shapes as compact as possible and seats re-apportioned to boroughs by enrollment. ' + AIM, weights: { pop: 0.5, compact: 3 } },
-  { id: 'econ', name: 'Example: economic balance', desc: 'A computer-generated example that brings each district\'s share of students in poverty as close to the citywide rate as geography allows. ' + AIM, weights: { pop: 0.2, compact: 0.5, econ: 5 } },
-  { id: 'race', name: 'Example: racial/ethnic integration', desc: 'A computer-generated example that brings each district\'s racial/ethnic mix as close to the city\'s as geography allows (minimizes Theil\'s H). ' + AIM, weights: { pop: 0.2, compact: 0.5, race: 5 } },
-  { id: 'blend', name: 'Example: balanced blend', desc: 'A computer-generated middle path: reasonably compact, with moderate weight on both economic and racial/ethnic balance. ' + AIM, weights: { pop: 0.3, compact: 1, econ: 3, race: 3 } },
-  { id: 'minchange', name: 'Example: fix sizes, minimal change', desc: 'A computer-generated example that starts from today\'s map, keeps each borough\'s current number of districts, and moves as few students as possible toward equal size. ' + AIM, weights: { pop: 0.3, compact: 0.3, change: 5 }, fromCurrent: true },
+  { id: 'equal', name: 'Equal size, compact', desc: 'A computer-generated example, redrawn from scratch with shapes as compact as possible and seats re-apportioned to boroughs by enrollment. ' + AIM, weights: { pop: 0.5, compact: 3 } },
+  { id: 'econ', name: 'Economic balance', desc: 'A computer-generated example that brings each district\'s share of students in poverty as close to the citywide rate as geography allows. ' + AIM, weights: { pop: 0.2, compact: 0.5, econ: 5 } },
+  { id: 'race', name: 'Racial/ethnic integration', desc: 'A computer-generated example that brings each district\'s racial/ethnic mix as close to the city\'s as geography allows (minimizes Theil\'s H). ' + AIM, weights: { pop: 0.2, compact: 0.5, race: 5 } },
+  { id: 'blend', name: 'Balanced blend', desc: 'A computer-generated middle path: reasonably compact, with moderate weight on both economic and racial/ethnic balance. ' + AIM, weights: { pop: 0.3, compact: 1, econ: 3, race: 3 } },
+  { id: 'minchange', name: 'Fix sizes, minimal change', desc: 'A computer-generated example that starts from today\'s map, keeps each borough\'s current number of districts, and moves as few students as possible toward equal size. ' + AIM, weights: { pop: 0.3, compact: 0.3, change: 5 }, fromCurrent: true },
 ];
 const out = [];
 for (const p of P) {

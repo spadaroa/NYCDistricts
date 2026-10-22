@@ -490,7 +490,7 @@
     $("planDesc").textContent = p ? p.desc + (p.weights ? " Generated from community superintendent schools. It is one possible map, not a recommendation; edit it or pick another starting point." : "") : `${S.K} districts, edited by you. Use “Reset” or pick an example above to start over.`;
   }
   {
-    const sel = $("presetSel"), og = document.createElement("optgroup"); og.label = "Computer-generated examples";
+    const sel = $("presetSel"), og = document.createElement("optgroup"); og.label = "Generated examples";
     PRESETS.forEach((p) => { const o = document.createElement("option"); o.value = p.id; o.textContent = p.name; (p.id === "current" ? sel : og).appendChild(o); });
     sel.appendChild(og);
   }

@@ -193,3 +193,9 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
 .brushchip { max-width: calc(100% - 80px); }
 .brushchip #brushTxt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* keep all five tabs visible at the default panel width */
+.tabs { overflow-x: visible; padding: 0 4px; gap: 0; }
+.tabs button { flex: 1 1 auto; padding: 12px 6px 10px; font-size: 13px; }
+.expand { padding: 0 10px; }
+@media (max-width: 860px) { .tabs { overflow-x: auto; } }

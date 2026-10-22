@@ -175,3 +175,6 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
 .explainer .pill { min-width: 26px; text-align: center; }
 .explainer dl { grid-template-columns: 1fr; gap: 2px 0; }
 .explainer dd { margin: 0 0 6px; }
+.explainer summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.explainer[open] summary { margin-bottom: 8px; }
+.explainer p:last-child { margin: 0 0 4px; }

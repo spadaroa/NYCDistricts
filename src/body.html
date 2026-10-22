@@ -92,16 +92,17 @@
       </section>
 
       <section class="pane" data-pane="districts" hidden>
-        <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. “vs city avg” compares each district with the average district citywide. “vs boro avg” compares it with the average district in its own borough (shown while districts stay inside boroughs).</p>
-        <div class="explainer">
-          <h2>Reading the segregation columns</h2>
+        <p class="desc">Click a row to paint with that district. Click a header to sort. Counts include only the school types checked on the Plan tab.</p>
+        <div class="tablewrap"><table class="dt" id="dtable"></table></div>
+        <details class="explainer">
+          <summary>How to read these columns</summary>
+          <p><b>vs city avg</b> compares each district with the average district citywide. <b>vs boro avg</b> compares it with the average district in its own borough (shown while districts stay inside boroughs).</p>
           <p>Race uses six race/ethnicity groups. Econ uses students in and not in poverty. All four columns run from 0 (fully integrated) upward; higher means more segregated.</p>
           <dl>
             <dt><b>Race H, Econ H</b></dt><dd>Theil's H for the schools inside the district, from 0 to 1. 0 = every school has the district's overall mix; 1 = each school serves only one group. The City row shows the enrollment-weighted average across districts.</dd>
             <dt><b>Race vs city, Econ vs city</b></dt><dd>How far the district's mix is from the city's. 0 = same mix as the city (<span id="cityPov">74%</span> poverty for econ); higher = further away. Usually below 1, but a district made up mostly of one small group can go higher. The City row is the plan's Theil's H across districts, which is the weighted average of these values, from 0 to 1.</dd>
           </dl>
-        </div>
-        <div class="tablewrap"><table class="dt" id="dtable"></table></div>
+        </details>
       </section>
 
       <section class="pane" data-pane="balance" hidden>

@@ -487,7 +487,7 @@
     sel.value = S.presetId;
     const p = PRESETS.find((x) => x.id === S.presetId);
     $("planName").textContent = p ? p.name : "Your plan";
-    $("planDesc").textContent = p ? p.desc + (p.weights ? " Generated from community superintendent schools. It is one possible map, not a recommendation; edit it or pick another starting point." : "") : `${S.K} districts, edited by you. Use “Reset to today” or pick an example above to start over.`;
+    $("planDesc").textContent = p ? p.desc + (p.weights ? " Generated from community superintendent schools. It is one possible map, not a recommendation; edit it or pick another starting point." : "") : `${S.K} districts, edited by you. Use “Reset” or pick an example above to start over.`;
   }
   {
     const sel = $("presetSel"), og = document.createElement("optgroup"); og.label = "Computer-generated examples";

@@ -211,7 +211,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
     <div class="preset">
       <label for="presetSel">Start from</label>
       <select id="presetSel"></select>
-      <button class="btn" id="resetBtn" title="Go back to today's 32 districts">Reset to today</button>
+      <button class="btn" id="resetBtn" title="Go back to today's 32 districts">Reset</button>
     </div>
   </header>
   <div class="main">
@@ -1392,7 +1392,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     sel.value = S.presetId;
     const p = PRESETS.find((x) => x.id === S.presetId);
     $("planName").textContent = p ? p.name : "Your plan";
-    $("planDesc").textContent = p ? p.desc + (p.weights ? " Generated from community superintendent schools. It is one possible map, not a recommendation; edit it or pick another starting point." : "") : `${S.K} districts, edited by you. Use “Reset to today” or pick an example above to start over.`;
+    $("planDesc").textContent = p ? p.desc + (p.weights ? " Generated from community superintendent schools. It is one possible map, not a recommendation; edit it or pick another starting point." : "") : `${S.K} districts, edited by you. Use “Reset” or pick an example above to start over.`;
   }
   {
     const sel = $("presetSel"), og = document.createElement("optgroup"); og.label = "Computer-generated examples";

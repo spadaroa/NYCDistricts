@@ -8,7 +8,12 @@ const head = `<title>NYC School District Builder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;600;700&display=swap">
 <style>${r('app.css')}</style>`;
-const scripts = `<script>window.DATA=${r('data.json')};window.PRESETS=${r('presets.json')};</script>
+const LAYERS = ['es', 'ms', 'tract', 'area'];
+const boot = `<script>window.LAYER_ORDER=${JSON.stringify(LAYERS)};window.DATA_ALL={${LAYERS.map((k) => `${k}:${r(`data_${k}.json`)}`).join(',')}};window.PRESETS_ALL={${LAYERS.map((k) => `${k}:${r(`presets_${k}.json`)}`).join(',')}};
+(function(){var st={},k=null;try{st=JSON.parse(window.name||'{}')||{}}catch(e){}if(st&&st.nycsdbLayer){k=st.nycsdbLayer;try{window.name=''}catch(e){}}
+if(!k){try{k=localStorage.getItem('nycsdb.layer')}catch(e){}}if(!window.DATA_ALL[k])k='es';
+window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[k];window.PENDING_CODE=(st&&st.code)||null;})();</script>`;
+const scripts = `${boot}
 <script>${r('engine.js')}</script>
 <script>${r('app.js')}</script>`;
 fs.mkdirSync(__dirname + '/dist', { recursive: true });

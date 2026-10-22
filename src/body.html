@@ -2,20 +2,21 @@
   <header class="top">
     <div class="brand">
       <h1>NYC School District Builder</h1>
-      <span class="sub">Draw your own community school districts with real DOE data</span>
+      <span class="sub">Draw your own community school districts using actual NYC public school data</span>
     </div>
     <div class="preset">
       <label for="presetSel">Start from</label>
       <select id="presetSel"></select>
+      <button class="btn" id="resetBtn" title="Go back to today's 32 districts">Reset to today</button>
     </div>
   </header>
   <div class="main">
     <div class="mapwrap" id="mapwrap">
-      <svg id="map" class="tool-paint" aria-label="Map of New York City school buildings colored by district"></svg>
+      <svg id="map" class="tool-pan" aria-label="Map of New York City school buildings colored by district"></svg>
       <div class="toolbar" role="toolbar" aria-label="Map tools">
-        <button id="tPaint" title="Paint (P): click or drag to assign buildings to the selected district" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M18 2l4 4-11 11H7v-4z"/><path d="M7 17c-2 0-4 1-4 4 2 0 4-1 4-4z"/></svg></button>
+        <button id="tPan" title="Move the map (H): drag to pan, scroll to zoom. In other tools, hold Space while dragging." aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg></button>
+        <button id="tPaint" title="Paint (P): click or drag to move areas into the selected district" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M18 2l4 4-11 11H7v-4z"/><path d="M7 17c-2 0-4 1-4 4 2 0 4-1 4-4z"/></svg></button>
         <button id="tErase" title="Erase (E): unassign buildings" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 20H8l-5-5 10-10 8 8-6 6"/><path d="M8 10l6 6"/></svg></button>
-        <button id="tPan" title="Pan (H): drag to move the map. You can also hold Space while dragging." aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg></button>
         <hr>
         <button id="tBrush" title="Brush size (B): one building or a building plus its neighbors" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></button>
         <button id="tUndo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
@@ -46,6 +47,11 @@
         <div>
           <h2 id="planName">Plan</h2>
           <p class="desc" id="planDesc"></p>
+        </div>
+        <div>
+          <h2>Building blocks</h2>
+          <div class="row"><label for="layerSel" class="sr">Building blocks</label><select id="layerSel" style="flex:1;min-width:0"></select></div>
+          <p class="note" id="layerDesc" style="margin:6px 0 0"></p>
         </div>
         <p class="countline" id="countLine"></p>
         <div>
@@ -161,6 +167,7 @@
         <p class="disclaimer"><b>A personal project.</b> This tool is an independent, personal project. It is not affiliated with, produced by, or endorsed by New York City Public Schools (the NYC Department of Education). It uses only publicly available data, and the plans in it are illustrations, not proposals.</p>
         <div>
           <h2>How it works</h2>
+          <p>You can build districts from four kinds of building blocks (Plan tab): DOE elementary school zones, DOE middle school zones (elementary zones in districts with middle school choice), 2020 Census tracts, or school areas (the part of each district nearest each school building). Every kind is split at the official district lines. The description below uses elementary zones.</p>
           <p>The map is built from DOE's elementary school attendance zones (2024–25). Where a zone crosses a community district line it is split at the official DCP line, so today's districts match the official map exactly. Land outside every zone (parks, marshes) is joined to the next zone in the same district. Districts are made by moving whole zones; every school inside a zone moves with it.</p>
           <p>A few schools report to a different district than the one they sit in, such as Beacon High School (District 3, located in District 2). They don't change the map. By default they are counted in the district they report to. Once you move the zone they sit in, they move with that zone.</p>
           <p>The scorecard compares your plan with today's districts, counting the same schools:</p>

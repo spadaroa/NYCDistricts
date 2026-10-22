@@ -5,14 +5,15 @@
   const SVGNS = "http://www.w3.org/2000/svg";
   const F = {}; DATA.meta.fields.forEach((f, i) => (F[f] = i));
   const N = DATA.units.length;
-  const STORE = "nycsdb.v3";
+  const LAYER = window.LAYER || "es";
+  const STORE = "nycsdb.v4." + LAYER;
   const GROUP_ORDER = ["C", "H", "S", "R"];
   const GROUP_COLORS = { C: "#2f6fd6", H: "#d9480f", S: "#7b3fbf", A: "#2b8a3e", R: "#c2255c" };
 
   // ---------- state ----------
   const S = {
     mode: "C", K: 32, dots: false, lines: false, level: "zone", lock: true, plan: null, presetId: "current",
-    active: 0, tool: "paint", brush: 1, colorBy: "district",
+    active: 0, tool: "pan", brush: 1, colorBy: "district",
     pin: new Uint8Array(0), undo: [], redo: [], model: null, base: null, stats: null, sort: { key: "d", dir: 1 },
   };
 
@@ -310,11 +311,11 @@
     if (th) { const k = th.dataset.k; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : 1 }; renderTable(); return; }
     const tr = e.target.closest("tr[data-d]"); if (tr) setActive(+tr.dataset.d);
   });
-  function setActive(d) { S.active = d; renderSwatches(); renderTable(); renderEdges(); renderBrush(); }
+  function setActive(d) { S.active = d; if (S.tool !== "paint") setTool("paint"); renderSwatches(); renderTable(); renderEdges(); renderBrush(); }
   function renderBrush() {
     $("brushSw").style.background = S.tool === "erase" ? "transparent" : districtColor(S.active);
     const s = S.stats && S.stats.districts[S.active];
-    const what = S.tool === "erase" ? "Erasing" : S.tool === "pan" ? "Panning" : `District ${S.active + 1}`;
+    const what = S.tool === "erase" ? "Erasing" : S.tool === "pan" ? `Moving the map · press Paint (P) to draw with District ${S.active + 1}` : `District ${S.active + 1}`;
     const extra = S.tool === "paint" && s && !s.empty ? ` · ${fmtN(s.E)} ${countShort()} (${s.devCity > 0 ? "+" : ""}${pct0(s.devCity)} vs. citywide average)` : "";
     $("brushTxt").textContent = what + extra + (S.brush > 1 && S.tool !== "pan" ? " · wide brush" : "");
   }
@@ -486,9 +487,14 @@
     sel.value = S.presetId;
     const p = PRESETS.find((x) => x.id === S.presetId);
     $("planName").textContent = p ? p.name : "Your plan";
-    $("planDesc").textContent = p ? p.desc + (p.mode === "C" ? " Optimized on community superintendent schools." : "") : `${S.K} districts, edited by you. Pick a starting point above to reset.`;
+    $("planDesc").textContent = p ? p.desc + (p.weights ? " Generated from community superintendent schools. It is one possible map, not a recommendation; edit it or pick another starting point." : "") : `${S.K} districts, edited by you. Use “Reset to today” or pick an example above to start over.`;
   }
-  PRESETS.forEach((p) => { const o = document.createElement("option"); o.value = p.id; o.textContent = p.name; $("presetSel").appendChild(o); });
+  {
+    const sel = $("presetSel"), og = document.createElement("optgroup"); og.label = "Computer-generated examples";
+    PRESETS.forEach((p) => { const o = document.createElement("option"); o.value = p.id; o.textContent = p.name; (p.id === "current" ? sel : og).appendChild(o); });
+    sel.appendChild(og);
+  }
+  $("resetBtn").onclick = () => { loadPreset("current"); toast("Back to today's districts. Undo (Ctrl+Z) brings your map back."); };
   $("presetSel").onchange = (e) => { if (e.target.value === "custom") return; loadPreset(e.target.value); };
   function loadPreset(id) {
     const p = PRESETS.find((x) => x.id === id); if (!p) return;
@@ -572,11 +578,14 @@
   const OUT_UNITS = DATA.units.map((u, i) => (u.s.some((si) => DATA.schools[si][F.admin] && DATA.schools[si][F.admin] !== u.cur) ? i : -1)).filter((i) => i >= 0);
   function code() {
     const pins = OUT_UNITS.filter((i) => S.pin[i]).map((i) => i.toString(36)).join(",");
-    return `v3.${S.mode}.${S.K}.${S.lock ? 1 : 0}.${pins}.${E.encodePlan(S.plan)}`;
+    return `v4.${LAYER}.${S.mode}.${S.K}.${S.lock ? 1 : 0}.${pins}.${E.encodePlan(S.plan)}`;
   }
   function renderCode() { const b = $("codeBox"); if (document.activeElement !== b) b.value = code(); }
   function loadCode(str) {
-    const m = String(str).trim().match(/^v3\.([CHSR]+)\.(\d+)\.([01])\.([0-9a-z,]*)\.(.+)$/);
+    const full = String(str).trim();
+    const lm = full.match(/^v4\.([a-z]+)\./);
+    if (lm && lm[1] !== LAYER && window.DATA_ALL && window.DATA_ALL[lm[1]]) { switchLayer(lm[1], full); return true; }
+    const m = full.replace(/^v4\.[a-z]+\./, "v3.").match(/^v3\.([CHSR]+)\.(\d+)\.([01])\.([0-9a-z,]*)\.(.+)$/);
     if (!m || m[5].length !== N) { toast("That code doesn't look like a plan from this tool."); return false; }
     pushUndoAll();
     S.mode = m[1]; rebuildModel(); renderGroups();
@@ -607,6 +616,7 @@
   function save() { try { localStorage.setItem(STORE, JSON.stringify({ code: code(), id: S.presetId })); } catch (_) {} }
   function restore() {
     try {
+      if (window.PENDING_CODE && loadCode(window.PENDING_CODE)) return true;
       const h = location.hash.match(/^#plan=(.+)$/);
       if (h && loadCode(decodeURIComponent(h[1]))) return true;
       const v = JSON.parse(localStorage.getItem(STORE) || "null");
@@ -615,6 +625,20 @@
     } catch (_) {}
     return false;
   }
+  function switchLayer(key, pendingCode) {
+    try { window.name = JSON.stringify({ nycsdbLayer: key, code: pendingCode || null }); } catch (_) {}
+    try { localStorage.setItem("nycsdb.layer", key); } catch (_) {}
+    document.body.style.cursor = "progress";
+    location.reload();
+  }
+  const layerSel = $("layerSel");
+  for (const k of window.LAYER_ORDER || [LAYER]) {
+    const L = window.DATA_ALL ? window.DATA_ALL[k].meta : DATA.meta;
+    const o = document.createElement("option"); o.value = k; o.textContent = `${L.layerName} (${fmtN(window.DATA_ALL ? window.DATA_ALL[k].units.length : N)} pieces)`; layerSel.appendChild(o);
+  }
+  layerSel.value = LAYER;
+  $("layerDesc").textContent = DATA.meta.layerDesc + ". Switching starts over from today's map.";
+  layerSel.onchange = () => switchLayer(layerSel.value);
   let toastT = 0;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2600); }
 

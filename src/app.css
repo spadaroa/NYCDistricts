@@ -192,3 +192,4 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
 .explainer p:last-child { margin: 0 0 4px; }
 .brushchip { max-width: calc(100% - 80px); }
 .brushchip #brushTxt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

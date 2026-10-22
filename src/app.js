@@ -162,6 +162,7 @@
     if (key === "pov") return s.povPct; if (key === "eni") return s.eni; if (key === "ell") return s.ellPct; if (key === "swd") return s.swdPct;
     if (key === "native") return s.nativePct; if (key === "dev") return s.dev; if (key === "devCity") return s.devCity;
     if (key === "raceH") return s.raceH; if (key === "econH") return s.econH;
+    if (key === "raceVs") return s.raceVs; if (key === "econVs") return s.econVs;
     if (key in GI) return s.pct[GI[key]];
     return null;
   }
@@ -274,7 +275,7 @@
   }
   const COLS = [
     ["d", "Dist"], ["boro", "Boro"], ["E", "Students"], ["devCity", "vs city avg"], ["dev", "vs boro avg"], ["asian", "Asian"], ["black", "Black"], ["hisp", "Hisp."], ["white", "White"], ["multi", "Multi"],
-    ["pov", "Poverty"], ["eni", "ENI"], ["ell", "ELL"], ["swd", "SWD"], ["raceH", "Race H"], ["econH", "Econ H"], ["ns", "Schools"], ["pp", "Compact"],
+    ["pov", "Poverty"], ["eni", "ENI"], ["ell", "ELL"], ["swd", "SWD"], ["raceH", "Race H"], ["econH", "Econ H"], ["raceVs", "Race vs city"], ["econVs", "Econ vs city"], ["ns", "Schools"], ["pp", "Compact"],
   ];
   function renderTable() {
     const D = S.stats.districts.filter((s) => !s.empty);
@@ -286,7 +287,7 @@
       if (k === "d") return `<span class="sw" style="background:${districtColor(s.d)}"></span>${s.d + 1}${s.comps > 1 ? ' <span class="bad-t" title="In pieces">⚠</span>' : ""}`;
       if (k === "boro") return E.BOROS[s.boro] || "–";
       if (k === "E" || k === "ns") return fmtN(v);
-      if (k === "raceH" || k === "econH") return v.toFixed(3);
+      if (k === "raceH" || k === "econH" || k === "raceVs" || k === "econVs") return v.toFixed(3);
       if (k === "dev" || k === "devCity") return `<span class="${Math.abs(v) > 0.15 ? "bad-t" : Math.abs(v) > 0.05 ? "warn-t" : ""}">${v > 0 ? "+" : ""}${pct0(v)}</span>`;
       if (k === "pp") return v.toFixed(2);
       return pct0(v);
@@ -294,11 +295,14 @@
     const b = S.stats.summary;
     const cityVal = { d: "<b>City</b>", E: fmtN(b.totE - b.unassignedE), devCity: `avg ${fmtN(b.cityAvg)}`,
       asian: pct0(b.Pg[0]), black: pct0(b.Pg[1]), hisp: pct0(b.Pg[2]), white: pct0(b.Pg[3]), multi: pct0(b.Pg[4]), pov: pct0(b.Ppov),
-      raceH: `<b>${b.theilH.toFixed(3)}</b>`, econH: `<b>${b.theilEcon.toFixed(3)}</b>` };
+      raceH: `avg ${b.withinRace.toFixed(3)}`, econH: `avg ${b.withinEcon.toFixed(3)}`,
+      raceVs: `<b>${b.theilH.toFixed(3)}</b>`, econVs: `<b>${b.theilEcon.toFixed(3)}</b>` };
     const cityRow = `<tr style="cursor:default">${cols.map(([k]) => `<td>${cityVal[k] || ""}</td>`).join("")}</tr>`;
     const tips = { devCity: "Difference from the average district citywide", dev: "Difference from the average district in the same borough",
-      raceH: "How much less racially/ethnically diverse than the city (0 = same mix as the city; below 0 = more diverse). City row = Theil's H for the plan.",
-      econH: "How much less economically mixed than the city (0 = same poverty rate as the city). City row = Theil's H for the plan.", E: countShort() };
+      raceH: "Theil's H across the schools inside this district, by race/ethnicity: 0 = every school has the district's mix, 1 = each school serves one group",
+      econH: "Theil's H across the schools inside this district, by poverty: 0 = every school has the district's poverty rate, 1 = complete separation",
+      raceVs: "How far this district's racial/ethnic mix is from the city's (0 = same mix). City row = the plan's Theil's H, the weighted average of this column",
+      econVs: "How far this district's poverty rate is from the city's (0 = same rate). City row = the plan's Theil's H, the weighted average of this column", E: countShort() };
     $("dtable").innerHTML = `<thead><tr>${cols.map(([k, l]) => `<th data-k="${k}"${tips[k] ? ` title="${tips[k]}"` : ""}>${l}${S.sort.key === k ? (S.sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead><tbody>${cityRow}${D.map((s) => `<tr data-d="${s.d}" class="${s.d === S.active ? "sel" : ""}">${cols.map(([k]) => `<td>${cell(s, k)}</td>`).join("")}</tr>`).join("")}</tbody>`;
   }
   $("dtable").addEventListener("click", (e) => {

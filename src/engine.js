@@ -36,6 +36,7 @@
       // schools whose administrative district differs from the district their zone is in:
       // out[i] = [{ admin (0-based), E, G[], pov, native, ell, swd, eniW }]
       out: Array.from({ length: n }, () => null),
+      sch: [], // counted schools: { u, admin (0-based if it reports to another district, else -1), E, G[], pov }
     };
     const nbs = [], nls = [];
     for (let i = 0; i < n; i++) {
@@ -56,6 +57,7 @@
         m.G[5][i] += Math.max(0, N - a - b - h - w - mu); m.native[i] += s[F.native];
         m.pov[i] += s[F.pov]; m.ell[i] += s[F.ell]; m.swd[i] += s[F.swd]; m.eniW[i] += s[F.eni] * N;
         const ad = s[F.admin];
+        m.sch.push({ u: i, admin: ad && ad !== u.cur ? ad - 1 : -1, E: N, G: [a, b, h, w, mu, Math.max(0, N - a - b - h - w - mu)], pov: s[F.pov] });
         if (ad && ad !== u.cur) {
           (m.out[i] = m.out[i] || []).push({ admin: ad - 1, E: N, G: [a, b, h, w, mu, Math.max(0, N - a - b - h - w - mu)],
             native: s[F.native], pov: s[F.pov], ell: s[F.ell], swd: s[F.swd], eniW: s[F.eni] * N, ns: 1 });
@@ -173,18 +175,39 @@
       s.comps = components(m, plan, s.d); if (s.comps > 1) nonContig++;
       if (s.boros.size > 1) splitB++;
       if (Math.abs(s.povPct - P) <= 0.1) withinPov++;
-      // local Theil terms: how much less diverse this district is than the city (0 = same as city; negative = more diverse)
-      s.raceH = Ent > 0 && s.E > 0 ? (Ent - entropy(s.pct)) / Ent : 0;
-      s.econH = EntP > 0 && s.E > 0 ? (EntP - entropy([s.povPct, 1 - s.povPct])) / EntP : 0;
+      // distance of this district's mix from the city's (relative entropy, scaled by city entropy). Never negative;
+      // the enrollment-weighted average over districts equals the plan's Theil's H.
+      const kl = (ps, Ps) => ps.reduce((a, p, g) => (p > 0 && Ps[g] > 0 ? a + p * Math.log(p / Ps[g]) : a), 0);
+      s.raceVs = Ent > 0 && s.E > 0 ? kl(s.pct, m.Pg) / Ent : 0;
+      s.econVs = EntP > 0 && s.E > 0 ? kl([s.povPct, 1 - s.povPct], [m.Ppov, 1 - m.Ppov]) / EntP : 0;
       if (s.E > 0) { H += s.E * (Ent - entropy(s.pct)); Hecon += s.E * (EntP - entropy([s.povPct, 1 - s.povPct])); }
       Dpov += Math.abs(s.pov / (totPov || 1) - (s.E - s.pov) / (E - totPov || 1));
     }
+    // within-district Theil's H across schools (0 = every school has the district's mix, 1 = each school serves one group)
+    const W = D.map(() => ({ r: 0, e: 0 }));
+    for (const sc of m.sch) {
+      let d = plan[sc.u];
+      if (d < 0 || sc.E <= 0) continue;
+      if (sc.admin >= 0 && pin && pin[sc.u] && sc.admin < K) d = sc.admin;
+      const t = D[d];
+      W[d].r += sc.E * entropy(sc.G.map((v) => v / sc.E));
+      const p = sc.pov / sc.E; W[d].e += sc.E * entropy([p, 1 - p]);
+    }
+    let wR = 0, wE = 0, wN = 0;
+    D.forEach((t, d) => {
+      if (t.empty || !t.E) { t.raceH = t.econH = 0; return; }
+      const er = entropy(t.pct), ee = entropy([t.povPct, 1 - t.povPct]);
+      t.raceH = er > 0 ? Math.max(0, (er - W[d].r / t.E) / er) : 0;
+      t.econH = ee > 0 ? Math.max(0, (ee - W[d].e / t.E) / ee) : 0;
+      wR += t.E * t.raceH; wE += t.E * t.econH; wN += t.E;
+    });
     return {
       districts: D,
       summary: {
         K, used, maxDev, rmsDev: Math.sqrt(sumDev2 / Math.max(1, used)), nonContig, crossBoro: splitB,
         avgPP: ppSum / Math.max(1, used), theilH: Ent > 0 ? H / (E * Ent) : 0, dissimPov: Dpov / 2,
         theilEcon: EntP > 0 ? Hecon / (E * EntP) : 0, maxDevCity, cityAvg,
+        withinRace: wN ? wR / wN : 0, withinEcon: wN ? wE / wN : 0,
         withinPov, changed: changedE / E, unassigned, unassignedE, totE: m.totE, Ppov: P, Pg: m.Pg,
       },
     };

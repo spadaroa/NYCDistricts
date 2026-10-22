@@ -181,6 +181,8 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
 .explainer dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 0; font-size: 12.5px; line-height: 1.45; }
 .explainer dt { margin: 0; } .explainer dd { margin: 0; }
 .explainer .pill { min-width: 26px; text-align: center; }
+.explainer dl { grid-template-columns: 1fr; gap: 2px 0; }
+.explainer dd { margin: 0 0 6px; }
 </style></head><body>
 <div class="app">
   <header class="top">
@@ -278,14 +280,12 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
       <section class="pane" data-pane="districts" hidden>
         <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. “vs city avg” compares each district with the average district citywide. “vs boro avg” compares it with the average district in its own borough (shown while districts stay inside boroughs).</p>
         <div class="explainer">
-          <h2>Reading Race H and Econ H</h2>
-          <p>Each district's mix compared with the city's. Race H uses six race/ethnicity groups; Econ H uses students in and not in poverty.</p>
+          <h2>Reading the segregation columns</h2>
+          <p>Race uses six race/ethnicity groups. Econ uses students in and not in poverty. All four columns run from 0 (fully integrated) upward; higher means more segregated.</p>
           <dl>
-            <dt><span class="pill neutral">0</span></dt><dd>As mixed as the city.</dd>
-            <dt><span class="pill bad">+</span></dt><dd>Less mixed than the city: students are more concentrated in one or a few groups. Higher means more segregated.</dd>
-            <dt><span class="pill good">−</span></dt><dd>More evenly spread across groups than the city. This doesn't mean the district looks like the city. The city is <span id="cityPov">74%</span> poverty, so a district closer to 50/50 scores below 0 even if its rate is far from the city's.</dd>
+            <dt><b>Race H, Econ H</b></dt><dd>Theil's H for the schools inside the district, from 0 to 1. 0 = every school has the district's overall mix; 1 = each school serves only one group. The City row shows the enrollment-weighted average across districts.</dd>
+            <dt><b>Race vs city, Econ vs city</b></dt><dd>How far the district's mix is from the city's. 0 = same mix as the city (<span id="cityPov">74%</span> poverty for econ); higher = further away. Usually below 1, but a district made up mostly of one small group can go higher. The City row is the plan's Theil's H across districts, which is the weighted average of these values, from 0 to 1.</dd>
           </dl>
-          <p>The City row is Theil's H for the whole plan. It is never below 0, and lower means more integrated overall.</p>
         </div>
         <div class="tablewrap"><table class="dt" id="dtable"></table></div>
       </section>
@@ -349,7 +349,8 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
             <li><b>Largest gap within a borough</b>: the same, compared with the average district in its own borough. Staten Island's single district is always 0% here, so use the citywide figure to compare across boroughs.</li>
             <li><b>Compactness</b>: average Polsby-Popper score (1 = a circle). Shorelines lower every score, so compare plans with each other.</li>
             <li><b>Racial/ethnic segregation</b>: Theil's H across districts (0 = every district matches the city mix).</li>
-            <li><b>Race H and Econ H (Districts tab)</b>: each district's own score. 0 = as mixed as the city; above 0 = less mixed (more segregated); below 0 = more evenly spread across groups than the city, which is not the same as matching the city.</li>
+            <li><b>Race H and Econ H (Districts tab)</b>: Theil's H across the schools inside each district, from 0 (every school has the district's mix) to 1 (each school serves one group).</li>
+            <li><b>Race vs city and Econ vs city (Districts tab)</b>: how far each district's mix is from the city's (0 = same). Their enrollment-weighted average is the plan's Theil's H shown on the scorecard.</li>
             <li><b>Economic segregation</b>: Theil's H for students in and not in poverty (0 = every district has the city's poverty rate).</li>
             <li><b>Students moved</b>: share of counted students whose school would be in a different district number than today.</li>
           </ul>
@@ -419,6 +420,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
       // schools whose administrative district differs from the district their zone is in:
       // out[i] = [{ admin (0-based), E, G[], pov, native, ell, swd, eniW }]
       out: Array.from({ length: n }, () => null),
+      sch: [], // counted schools: { u, admin (0-based if it reports to another district, else -1), E, G[], pov }
     };
     const nbs = [], nls = [];
     for (let i = 0; i < n; i++) {
@@ -439,6 +441,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
         m.G[5][i] += Math.max(0, N - a - b - h - w - mu); m.native[i] += s[F.native];
         m.pov[i] += s[F.pov]; m.ell[i] += s[F.ell]; m.swd[i] += s[F.swd]; m.eniW[i] += s[F.eni] * N;
         const ad = s[F.admin];
+        m.sch.push({ u: i, admin: ad && ad !== u.cur ? ad - 1 : -1, E: N, G: [a, b, h, w, mu, Math.max(0, N - a - b - h - w - mu)], pov: s[F.pov] });
         if (ad && ad !== u.cur) {
           (m.out[i] = m.out[i] || []).push({ admin: ad - 1, E: N, G: [a, b, h, w, mu, Math.max(0, N - a - b - h - w - mu)],
             native: s[F.native], pov: s[F.pov], ell: s[F.ell], swd: s[F.swd], eniW: s[F.eni] * N, ns: 1 });
@@ -556,18 +559,39 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
       s.comps = components(m, plan, s.d); if (s.comps > 1) nonContig++;
       if (s.boros.size > 1) splitB++;
       if (Math.abs(s.povPct - P) <= 0.1) withinPov++;
-      // local Theil terms: how much less diverse this district is than the city (0 = same as city; negative = more diverse)
-      s.raceH = Ent > 0 && s.E > 0 ? (Ent - entropy(s.pct)) / Ent : 0;
-      s.econH = EntP > 0 && s.E > 0 ? (EntP - entropy([s.povPct, 1 - s.povPct])) / EntP : 0;
+      // distance of this district's mix from the city's (relative entropy, scaled by city entropy). Never negative;
+      // the enrollment-weighted average over districts equals the plan's Theil's H.
+      const kl = (ps, Ps) => ps.reduce((a, p, g) => (p > 0 && Ps[g] > 0 ? a + p * Math.log(p / Ps[g]) : a), 0);
+      s.raceVs = Ent > 0 && s.E > 0 ? kl(s.pct, m.Pg) / Ent : 0;
+      s.econVs = EntP > 0 && s.E > 0 ? kl([s.povPct, 1 - s.povPct], [m.Ppov, 1 - m.Ppov]) / EntP : 0;
       if (s.E > 0) { H += s.E * (Ent - entropy(s.pct)); Hecon += s.E * (EntP - entropy([s.povPct, 1 - s.povPct])); }
       Dpov += Math.abs(s.pov / (totPov || 1) - (s.E - s.pov) / (E - totPov || 1));
     }
+    // within-district Theil's H across schools (0 = every school has the district's mix, 1 = each school serves one group)
+    const W = D.map(() => ({ r: 0, e: 0 }));
+    for (const sc of m.sch) {
+      let d = plan[sc.u];
+      if (d < 0 || sc.E <= 0) continue;
+      if (sc.admin >= 0 && pin && pin[sc.u] && sc.admin < K) d = sc.admin;
+      const t = D[d];
+      W[d].r += sc.E * entropy(sc.G.map((v) => v / sc.E));
+      const p = sc.pov / sc.E; W[d].e += sc.E * entropy([p, 1 - p]);
+    }
+    let wR = 0, wE = 0, wN = 0;
+    D.forEach((t, d) => {
+      if (t.empty || !t.E) { t.raceH = t.econH = 0; return; }
+      const er = entropy(t.pct), ee = entropy([t.povPct, 1 - t.povPct]);
+      t.raceH = er > 0 ? Math.max(0, (er - W[d].r / t.E) / er) : 0;
+      t.econH = ee > 0 ? Math.max(0, (ee - W[d].e / t.E) / ee) : 0;
+      wR += t.E * t.raceH; wE += t.E * t.econH; wN += t.E;
+    });
     return {
       districts: D,
       summary: {
         K, used, maxDev, rmsDev: Math.sqrt(sumDev2 / Math.max(1, used)), nonContig, crossBoro: splitB,
         avgPP: ppSum / Math.max(1, used), theilH: Ent > 0 ? H / (E * Ent) : 0, dissimPov: Dpov / 2,
         theilEcon: EntP > 0 ? Hecon / (E * EntP) : 0, maxDevCity, cityAvg,
+        withinRace: wN ? wR / wN : 0, withinEcon: wN ? wE / wN : 0,
         withinPov, changed: changedE / E, unassigned, unassignedE, totE: m.totE, Ppov: P, Pg: m.Pg,
       },
     };
@@ -1009,6 +1033,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
     if (key === "pov") return s.povPct; if (key === "eni") return s.eni; if (key === "ell") return s.ellPct; if (key === "swd") return s.swdPct;
     if (key === "native") return s.nativePct; if (key === "dev") return s.dev; if (key === "devCity") return s.devCity;
     if (key === "raceH") return s.raceH; if (key === "econH") return s.econH;
+    if (key === "raceVs") return s.raceVs; if (key === "econVs") return s.econVs;
     if (key in GI) return s.pct[GI[key]];
     return null;
   }
@@ -1121,7 +1146,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
   }
   const COLS = [
     ["d", "Dist"], ["boro", "Boro"], ["E", "Students"], ["devCity", "vs city avg"], ["dev", "vs boro avg"], ["asian", "Asian"], ["black", "Black"], ["hisp", "Hisp."], ["white", "White"], ["multi", "Multi"],
-    ["pov", "Poverty"], ["eni", "ENI"], ["ell", "ELL"], ["swd", "SWD"], ["raceH", "Race H"], ["econH", "Econ H"], ["ns", "Schools"], ["pp", "Compact"],
+    ["pov", "Poverty"], ["eni", "ENI"], ["ell", "ELL"], ["swd", "SWD"], ["raceH", "Race H"], ["econH", "Econ H"], ["raceVs", "Race vs city"], ["econVs", "Econ vs city"], ["ns", "Schools"], ["pp", "Compact"],
   ];
   function renderTable() {
     const D = S.stats.districts.filter((s) => !s.empty);
@@ -1133,7 +1158,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
       if (k === "d") return `<span class="sw" style="background:${districtColor(s.d)}"></span>${s.d + 1}${s.comps > 1 ? ' <span class="bad-t" title="In pieces">⚠</span>' : ""}`;
       if (k === "boro") return E.BOROS[s.boro] || "–";
       if (k === "E" || k === "ns") return fmtN(v);
-      if (k === "raceH" || k === "econH") return v.toFixed(3);
+      if (k === "raceH" || k === "econH" || k === "raceVs" || k === "econVs") return v.toFixed(3);
       if (k === "dev" || k === "devCity") return `<span class="${Math.abs(v) > 0.15 ? "bad-t" : Math.abs(v) > 0.05 ? "warn-t" : ""}">${v > 0 ? "+" : ""}${pct0(v)}</span>`;
       if (k === "pp") return v.toFixed(2);
       return pct0(v);
@@ -1141,11 +1166,14 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
     const b = S.stats.summary;
     const cityVal = { d: "<b>City</b>", E: fmtN(b.totE - b.unassignedE), devCity: `avg ${fmtN(b.cityAvg)}`,
       asian: pct0(b.Pg[0]), black: pct0(b.Pg[1]), hisp: pct0(b.Pg[2]), white: pct0(b.Pg[3]), multi: pct0(b.Pg[4]), pov: pct0(b.Ppov),
-      raceH: `<b>${b.theilH.toFixed(3)}</b>`, econH: `<b>${b.theilEcon.toFixed(3)}</b>` };
+      raceH: `avg ${b.withinRace.toFixed(3)}`, econH: `avg ${b.withinEcon.toFixed(3)}`,
+      raceVs: `<b>${b.theilH.toFixed(3)}</b>`, econVs: `<b>${b.theilEcon.toFixed(3)}</b>` };
     const cityRow = `<tr style="cursor:default">${cols.map(([k]) => `<td>${cityVal[k] || ""}</td>`).join("")}</tr>`;
     const tips = { devCity: "Difference from the average district citywide", dev: "Difference from the average district in the same borough",
-      raceH: "How much less racially/ethnically diverse than the city (0 = same mix as the city; below 0 = more diverse). City row = Theil's H for the plan.",
-      econH: "How much less economically mixed than the city (0 = same poverty rate as the city). City row = Theil's H for the plan.", E: countShort() };
+      raceH: "Theil's H across the schools inside this district, by race/ethnicity: 0 = every school has the district's mix, 1 = each school serves one group",
+      econH: "Theil's H across the schools inside this district, by poverty: 0 = every school has the district's poverty rate, 1 = complete separation",
+      raceVs: "How far this district's racial/ethnic mix is from the city's (0 = same mix). City row = the plan's Theil's H, the weighted average of this column",
+      econVs: "How far this district's poverty rate is from the city's (0 = same rate). City row = the plan's Theil's H, the weighted average of this column", E: countShort() };
     $("dtable").innerHTML = `<thead><tr>${cols.map(([k, l]) => `<th data-k="${k}"${tips[k] ? ` title="${tips[k]}"` : ""}>${l}${S.sort.key === k ? (S.sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead><tbody>${cityRow}${D.map((s) => `<tr data-d="${s.d}" class="${s.d === S.active ? "sel" : ""}">${cols.map(([k]) => `<td>${cell(s, k)}</td>`).join("")}</tr>`).join("")}</tbody>`;
   }
   $("dtable").addEventListener("click", (e) => {

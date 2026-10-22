@@ -141,6 +141,7 @@
   }
   function recompute() {
     S.stats = E.stats(S.model, S.plan, S.K, { lock: S.lock, pin: S.pin });
+    $("cityPov").textContent = pct0(S.stats.summary.Ppov);
     $("countLine").innerHTML = `Counting <b>${fmtN(S.stats.summary.totE)} students</b> in ${countLong()} only.`;
     renderColors(); renderLabels(); renderScore(); renderSwatches(); renderTable(); renderBrush(); renderCode(); save();
   }

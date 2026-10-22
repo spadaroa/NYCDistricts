@@ -92,7 +92,17 @@
       </section>
 
       <section class="pane" data-pane="districts" hidden>
-        <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. “vs city avg” compares each district with the average district citywide. “vs boro avg” compares it with the average district in its own borough (shown while districts stay inside boroughs). Race H and Econ H show how much less mixed a district is than the city: 0 means the same mix as the city, and below 0 means more mixed. The City row gives Theil's H for the whole plan.</p>
+        <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. “vs city avg” compares each district with the average district citywide. “vs boro avg” compares it with the average district in its own borough (shown while districts stay inside boroughs).</p>
+        <div class="explainer">
+          <h2>Reading Race H and Econ H</h2>
+          <p>Each district's mix compared with the city's. Race H uses six race/ethnicity groups; Econ H uses students in and not in poverty.</p>
+          <dl>
+            <dt><span class="pill neutral">0</span></dt><dd>As mixed as the city.</dd>
+            <dt><span class="pill bad">+</span></dt><dd>Less mixed than the city: students are more concentrated in one or a few groups. Higher means more segregated.</dd>
+            <dt><span class="pill good">−</span></dt><dd>More evenly spread across groups than the city. This doesn't mean the district looks like the city. The city is <span id="cityPov">74%</span> poverty, so a district closer to 50/50 scores below 0 even if its rate is far from the city's.</dd>
+          </dl>
+          <p>The City row is Theil's H for the whole plan. It is never below 0, and lower means more integrated overall.</p>
+        </div>
         <div class="tablewrap"><table class="dt" id="dtable"></table></div>
       </section>
 
@@ -155,6 +165,7 @@
             <li><b>Largest gap within a borough</b>: the same, compared with the average district in its own borough. Staten Island's single district is always 0% here, so use the citywide figure to compare across boroughs.</li>
             <li><b>Compactness</b>: average Polsby-Popper score (1 = a circle). Shorelines lower every score, so compare plans with each other.</li>
             <li><b>Racial/ethnic segregation</b>: Theil's H across districts (0 = every district matches the city mix).</li>
+            <li><b>Race H and Econ H (Districts tab)</b>: each district's own score. 0 = as mixed as the city; above 0 = less mixed (more segregated); below 0 = more evenly spread across groups than the city, which is not the same as matching the city.</li>
             <li><b>Economic segregation</b>: Theil's H for students in and not in poverty (0 = every district has the city's poverty rate).</li>
             <li><b>Students moved</b>: share of counted students whose school would be in a different district number than today.</li>
           </ul>

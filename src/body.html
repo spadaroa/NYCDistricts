@@ -1,0 +1,184 @@
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>NYC School District Builder</h1>
+      <span class="sub">Draw your own community school districts with real DOE data</span>
+    </div>
+    <div class="preset">
+      <label for="presetSel">Start from</label>
+      <select id="presetSel"></select>
+    </div>
+  </header>
+  <div class="main">
+    <div class="mapwrap" id="mapwrap">
+      <svg id="map" class="tool-paint" aria-label="Map of New York City school buildings colored by district"></svg>
+      <div class="toolbar" role="toolbar" aria-label="Map tools">
+        <button id="tPaint" title="Paint (P): click or drag to assign buildings to the selected district" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M18 2l4 4-11 11H7v-4z"/><path d="M7 17c-2 0-4 1-4 4 2 0 4-1 4-4z"/></svg></button>
+        <button id="tErase" title="Erase (E): unassign buildings" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 20H8l-5-5 10-10 8 8-6 6"/><path d="M8 10l6 6"/></svg></button>
+        <button id="tPan" title="Pan (H): drag to move the map. You can also hold Space while dragging." aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg></button>
+        <hr>
+        <button id="tBrush" title="Brush size (B): one building or a building plus its neighbors" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></button>
+        <button id="tUndo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+        <button id="tRedo" title="Redo (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg></button>
+        <hr>
+        <button id="tIn" title="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button id="tOut" title="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button id="tFit" title="Show whole city"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="brushchip" id="brushchip"><span class="sw" id="brushSw"></span><span id="brushTxt"></span></div>
+      <div class="legend" id="legend" hidden></div>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+    <aside class="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="plan">Plan</button>
+        <button role="tab" aria-selected="false" data-tab="districts">Districts</button>
+        <button role="tab" aria-selected="false" data-tab="balance">Auto-balance</button>
+        <button role="tab" aria-selected="false" data-tab="share">Save &amp; share</button>
+        <button role="tab" aria-selected="false" data-tab="about">About</button>
+      </div>
+
+      <section class="pane" data-pane="plan">
+        <div>
+          <h2 id="planName">Plan</h2>
+          <p class="desc" id="planDesc"></p>
+        </div>
+        <p class="countline" id="countLine"></p>
+        <div>
+          <h2>Schools counted</h2>
+          <div class="groups" id="groups"></div>
+          <p class="note" id="groupNote"></p>
+        </div>
+        <div>
+          <h2>Paint with district</h2>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div>
+          <h2>Scorecard <span style="text-transform:none;letter-spacing:0;font-weight:400">· compared with today's districts</span></h2>
+          <div class="score" id="score"></div>
+        </div>
+        <div>
+          <h2>Map</h2>
+          <div class="row" style="margin-bottom:8px">
+            <label for="colorBy" style="font-size:13px">Shade zones by</label>
+            <select id="colorBy">
+              <option value="district">District</option>
+              <option value="dev">Size vs. target</option>
+              <optgroup label="Student subgroups">
+                <option value="asian">% Asian</option>
+                <option value="black">% Black</option>
+                <option value="hisp">% Hispanic</option>
+                <option value="white">% White</option>
+                <option value="multi">% Multiracial</option>
+                <option value="native">% Native American</option>
+                <option value="ell">% ELL / ENL (multilingual learners)</option>
+                <option value="swd">% Students with disabilities</option>
+                <option value="pov">% In poverty</option>
+                <option value="eni">Economic Need Index</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="seg" id="levelSeg" role="radiogroup" aria-label="Shading level">
+            <button role="radio" aria-checked="true" data-level="zone">Each zone</button>
+            <button role="radio" aria-checked="false" data-level="district">District average</button>
+          </div>
+          <div class="layers">
+            <label class="check"><input type="checkbox" id="showDots"> School dots <span class="note">(sized by enrollment, colored by type)</span></label>
+            <label class="check"><input type="checkbox" id="showLines"> Official district lines (DCP)</label>
+          </div>
+          <div class="dotkey" id="dotkey" hidden></div>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="districts" hidden>
+        <p class="desc">Student counts include only the school types checked under Schools counted on the Plan tab. Click a row to select that district for painting. Click a column header to sort. Targets use each borough's average when districts stay within boroughs.</p>
+        <div class="tablewrap"><table class="dt" id="dtable"></table></div>
+      </section>
+
+      <section class="pane" data-pane="balance" hidden>
+        <p class="desc">Let the computer adjust the current plan. It swaps buildings along district borders, keeps every district in one piece, and keeps each district within the size limit. Set how much each goal matters, then run it as many times as you like.</p>
+        <div class="field"><label for="wPop">Equal enrollment</label><output id="oPop"></output><input type="range" id="wPop" min="0" max="5" step="0.1" value="1"></div>
+        <div class="field"><label for="wCompact">Compact shapes</label><output id="oCompact"></output><input type="range" id="wCompact" min="0" max="5" step="0.1" value="1"></div>
+        <div class="field"><label for="wEcon">Economic mix (poverty rate near city average)</label><output id="oEcon"></output><input type="range" id="wEcon" min="0" max="10" step="0.1" value="0"></div>
+        <div class="field"><label for="wRace">Racial/ethnic mix (near city average)</label><output id="oRace"></output><input type="range" id="wRace" min="0" max="10" step="0.1" value="0"></div>
+        <div class="field"><label for="wChange">Keep today's lines</label><output id="oChange"></output><input type="range" id="wChange" min="0" max="10" step="0.1" value="0"></div>
+        <div class="row">
+          <label for="maxDev" style="font-size:13px">Size limit ±</label>
+          <select id="maxDev"><option value="0.03">3%</option><option value="0.05" selected>5%</option><option value="0.1">10%</option><option value="0.2">20%</option><option value="9">No limit</option></select>
+          <label for="effort" style="font-size:13px">Effort</label>
+          <select id="effort"><option value="150000">Quick</option><option value="600000" selected>Normal</option><option value="1500000">Thorough</option></select>
+        </div>
+        <div class="row"><button class="btn primary" id="runOpt">Run auto-balance</button><button class="btn" id="stopOpt" disabled>Stop</button></div>
+        <div class="progress"><div id="optBar"></div></div>
+        <p class="note" id="optMsg"></p>
+        <hr style="border:0;border-top:1px solid var(--line);width:100%">
+        <div>
+          <h2>Plan settings</h2>
+          <label class="check"><input type="checkbox" id="lockBoro" checked> Keep every district inside one borough (today's rule). Size targets become each borough's average.</label>
+        </div>
+        <div>
+          <h2>Start a new plan</h2>
+          <div class="row">
+            <label for="newK" style="font-size:13px">Districts</label>
+            <input type="number" id="newK" min="2" max="60" value="32" style="width:80px">
+            <button class="btn" id="newSeed">Draw starting map</button>
+            <button class="btn" id="newBlank">Blank map</button>
+          </div>
+          <p class="note">A starting map groups nearby buildings into equal-sized districts, which you can then refine. With "inside one borough" on, seats are split among boroughs by enrollment.</p>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="share" hidden>
+        <div>
+          <h2>Plan code</h2>
+          <p class="desc">This code holds your whole map. Copy it to save your work or send it to someone; paste a code to load a plan.</p>
+          <textarea id="codeBox" spellcheck="false" aria-label="Plan code"></textarea>
+          <div class="row"><button class="btn" id="copyCode">Copy code</button><button class="btn" id="loadCode">Load pasted code</button></div>
+        </div>
+        <div>
+          <h2>School assignment table</h2>
+          <p class="desc">One row per school: DBN, name, type, superintendent, today's district, and its district in this plan (CSV).</p>
+          <div class="row"><button class="btn" id="copyCsv">Copy CSV</button><button class="btn" id="dlCsv">Download CSV</button></div>
+        </div>
+        <p class="note">Your current plan is also saved in this browser automatically.</p>
+      </section>
+
+      <section class="pane about" data-pane="about" hidden>
+        <div>
+          <h2>How it works</h2>
+          <p>The map is built from DOE's elementary school attendance zones (2024–25). Where a zone crosses a community district line it is split at the official DCP line, so today's districts match the official map exactly. Land outside every zone (parks, marshes) is joined to the next zone in the same district. Districts are made by moving whole zones; every school inside a zone moves with it.</p>
+          <p>A few schools report to a different district than the one they sit in, such as Beacon High School (District 3, located in District 2). They don't change the map. By default they are counted in the district they report to. Once you move the zone they sit in, they move with that zone.</p>
+          <p>The scorecard compares your plan with today's districts, counting the same schools:</p>
+          <ul>
+            <li><b>Largest size gap</b>: how far the biggest or smallest district is from its target enrollment.</li>
+            <li><b>Compactness</b>: average Polsby-Popper score (1 = a circle). Shorelines lower every score, so compare plans with each other.</li>
+            <li><b>Racial/ethnic segregation</b>: Theil's H across districts (0 = every district matches the city mix).</li>
+            <li><b>Economic segregation</b>: dissimilarity index between students in and not in poverty (0 = even spread).</li>
+            <li><b>Students moved</b>: share of counted students whose school would be in a different district number than today.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>Data</h2>
+          <ul>
+            <li>Schools, buildings, addresses, superintendents: NYC DOE <a href="https://infohub.nyced.org/in-our-schools/operations/lcgms" target="_blank" rel="noopener">LCGMS report</a>, pulled <span id="rosterTxt"></span>.</li>
+            <li>Enrollment and demographics: NYC DOE <a href="https://infohub.nyced.org/reports/students-and-schools/school-quality/information-and-data-overview" target="_blank" rel="noopener">Demographic Snapshot</a>, <span id="yearTxt"></span>.</li>
+            <li>Building locations: LCGMS addresses geocoded with NYC Planning's <a href="https://geosearch.planninglabs.nyc/" target="_blank" rel="noopener">GeoSearch</a>, checked against each school's geographic district.</li>
+            <li>Zones: NYC Open Data <a href="https://data.cityofnewyork.us/Education/School-Zones-2024-2025-Elementary-School-/cmjf-yawu" target="_blank" rel="noopener">School Zones 2024–2025 (Elementary School)</a>.</li>
+            <li>District lines: NYC Open Data <a href="https://data.cityofnewyork.us/City-Government/School-Districts/8ugf-3d8u" target="_blank" rel="noopener">School Districts</a> (DCP).</li>
+          </ul>
+          <p class="note" id="dataNote"></p>
+        </div>
+        <div>
+          <h2>Limits</h2>
+          <ul>
+            <li>District 79 programs are not in the public LCGMS report, so they can't be placed on the map.</li>
+            <li>Demographics are reported per school, so each school counts with its whole enrollment.</li>
+            <li>High school superintendent schools have a district number but admit students citywide.</li>
+            <li>Poverty values reported as "Above 95%" are counted as 97%.</li>
+          </ul>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>

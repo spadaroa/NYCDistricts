@@ -351,8 +351,6 @@
       tlRow("Districts", t.n, p.n, n0, n0, 0),
       tlRow("Schools", t.ns, p.ns, n0, n0, 0, 0.5, "Counted schools placed in a district"),
       tlRow("Students", t.E, p.E, n0, n0, 0, 0.5, countShort() + " placed in a district"),
-      tlRow("Median students / district", t.medE, p.medE, n0, n0, 0, 0.5, "Half of districts have more students than this, half fewer. (The average, " + (p.avgE == null ? "–" : fmtN(p.avgE)) + ", only changes if the number of districts changes.)"),
-      tlRow("Median schools / district", t.medNs, p.medNs, n1, n1, 0, 0.05, "Half of districts have more schools than this, half fewer"),
       tlRow("Size spread (std. dev.)", t.sdE, p.sdE, n0, n0, -1, 0.5, "How much district enrollments vary around the average; lower means more equal sizes"),
       tlRow("Smallest district", t.min, p.min, n0, n0, 0, 0.5, "Students in the smallest district"),
       tlRow("Largest district", t.max, p.max, n0, n0, 0, 0.5, "Students in the largest district"),

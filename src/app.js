@@ -25,19 +25,12 @@
   };
   // District colors: a palette of distinct hues at two lightness levels. Colors are assigned per plan so that
   // neighboring districts (and their neighbors) get colors that are far apart.
-  const PALETTE = [];
-  for (let k = 0; k < 18; k++) for (const [sat, lt, ld] of [[62, 70, 52], [58, 52, 40]]) PALETTE.push({ h: k * 20 + 8, s: sat, l: lt, ld });
-  function hslToLab(h, s, l) {
-    s /= 100; l /= 100;
-    const f = (n) => { const k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
-    const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-    const [r, g, b] = [f(0), f(8), f(4)].map(lin);
-    const X = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.9505, Y = 0.2126 * r + 0.7152 * g + 0.0722 * b, Z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.089;
-    const t = (v) => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
-    return [116 * t(Y) - 16, 500 * (t(X) - t(Y)), 200 * (t(Y) - t(Z))];
-  }
-  PALETTE.forEach((c) => { c.lab = hslToLab(c.h, c.s, c.l); c.labD = hslToLab(c.h, c.s, c.ld); });
-  // readable text on a district color: white on darker colors, near-black on lighter ones
+  // 32 soft, well-separated colors (CIELAB farthest-point sampling over moderate-chroma colors); each district gets
+  // its own color, assigned so neighbors and neighbors-of-neighbors differ most. Dark-theme versions are deeper.
+  const PAL_LIGHT = ["#e4a5b7", "#bf5464", "#a36766", "#ec8377", "#e4a898", "#c57849", "#fcc090", "#eac875", "#bcb887", "#757b4d", "#98c371", "#3c8647", "#60977b", "#9fd8ba", "#2cb58e", "#2eb2ad", "#29828b", "#5bddf2", "#37acd7", "#3f7e9f", "#99d3f8", "#5e8eca", "#c3c9fa", "#6f6fbd", "#7e709c", "#c1a9fc", "#9a62aa", "#d187cd", "#fdb7e8", "#b4578e", "#b17c99", "#e87fad"];
+  const PAL_DARK = ["#ba8191", "#943343", "#7b4646", "#bf6056", "#ba8476", "#9b572c", "#d19b6f", "#c1a355", "#969266", "#53582f", "#759c52", "#196229", "#407259", "#7cb196", "#008e6b", "#008b87", "#005f67", "#33b5c9", "#0087ae", "#185b79", "#75adce", "#3a6aa1", "#9da3d0", "#4b4d94", "#5a4f75", "#9a84d1", "#734182", "#a864a4", "#d292bf", "#8a3569", "#895a74", "#bc5c88"];
+  const PAL_LAB = [[74, 26.0, 0.0], [50, 44.2, 12.7], [50, 23.8, 10.6], [66, 39.0, 24.4], [74, 19.9, 16.7], [58, 25.7, 38.1], [82, 15.8, 32.4], [82, 1.6, 46.0], [74, -6.3, 25.2], [50, -9.7, 24.1], [74, -28.3, 36.2], [50, -37.2, 27.0], [58, -24.4, 8.9], [82, -24.4, 8.9], [66, -45.0, 9.6], [66, -35.2, -7.5], [50, -23.0, -12.2], [82, -29.1, -21.2], [66, -18.0, -31.2], [50, -9.7, -24.1], [82, -9.7, -24.1], [58, 1.3, -36.0], [82, 8.0, -24.7], [50, 20.2, -41.3], [50, 14.5, -21.6], [74, 25.7, -38.1], [50, 35.2, -29.6], [66, 39.0, -24.4], [82, 32.9, -14.6], [50, 44.2, -12.7], [58, 25.0, -7.2], [66, 45.6, -6.4]];
+  const PALETTE = PAL_LIGHT.map((hex, i) => ({ hex, dark: PAL_DARK[i], lab: PAL_LAB[i], labD: [Math.max(30, PAL_LAB[i][0] - 14), 0, 0] }));
   function districtInk(d) {
     if (d < 0) return "";
     const c = PALETTE[colorOf[d] != null && colorOf[d] >= 0 ? colorOf[d] : d % PALETTE.length];
@@ -67,7 +60,7 @@
         let d1 = 120, d2 = 120;
         nb[d].forEach((y) => { if (col[y] >= 0) d1 = Math.min(d1, labDist(c.lab, PALETTE[col[y]].lab)); });
         two.forEach((y) => { if (col[y] >= 0) d2 = Math.min(d2, labDist(c.lab, PALETTE[col[y]].lab)); });
-        const score = d1 + 0.35 * d2 - 6 * used[ci];
+        const score = d1 + 0.35 * d2 - 1000 * used[ci]; // every district gets its own color while colors last
         if (score > best) { best = score; pick = ci; }
       });
       col[d] = pick; used[pick]++;
@@ -77,7 +70,7 @@
   function districtColor(d) {
     if (d < 0) return isDark() ? "#26313d" : "#cfd6de";
     const c = PALETTE[colorOf[d] != null && colorOf[d] >= 0 ? colorOf[d] : d % PALETTE.length];
-    return `hsl(${c.h} ${c.s}% ${isDark() ? c.ld : c.l}%)`;
+    return isDark() ? c.dark : c.hex;
   }
   function seq(t) { // sequential: pale to deep blue-green
     t = Math.max(0, Math.min(1, t));

@@ -970,21 +970,23 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     if (t) return t === "dark";
     return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
   };
-  // District colors: a palette of distinct hues at two lightness levels. Colors are assigned per plan so that
-  // neighboring districts (and their neighbors) get colors that are far apart.
-  // 32 soft, well-separated colors (CIELAB farthest-point sampling over moderate-chroma colors); each district gets
-  // its own color, assigned so neighbors and neighbors-of-neighbors differ most. Dark-theme versions are deeper.
-  const PAL_LIGHT = ["#e4a5b7", "#bf5464", "#a36766", "#ec8377", "#e4a898", "#c57849", "#fcc090", "#eac875", "#bcb887", "#757b4d", "#98c371", "#3c8647", "#60977b", "#9fd8ba", "#2cb58e", "#2eb2ad", "#29828b", "#5bddf2", "#37acd7", "#3f7e9f", "#99d3f8", "#5e8eca", "#c3c9fa", "#6f6fbd", "#7e709c", "#c1a9fc", "#9a62aa", "#d187cd", "#fdb7e8", "#b4578e", "#b17c99", "#e87fad"];
-  const PAL_DARK = ["#ba8191", "#943343", "#7b4646", "#bf6056", "#ba8476", "#9b572c", "#d19b6f", "#c1a355", "#969266", "#53582f", "#759c52", "#196229", "#407259", "#7cb196", "#008e6b", "#008b87", "#005f67", "#33b5c9", "#0087ae", "#185b79", "#75adce", "#3a6aa1", "#9da3d0", "#4b4d94", "#5a4f75", "#9a84d1", "#734182", "#a864a4", "#d292bf", "#8a3569", "#895a74", "#bc5c88"];
-  const PAL_LAB = [[74, 26.0, 0.0], [50, 44.2, 12.7], [50, 23.8, 10.6], [66, 39.0, 24.4], [74, 19.9, 16.7], [58, 25.7, 38.1], [82, 15.8, 32.4], [82, 1.6, 46.0], [74, -6.3, 25.2], [50, -9.7, 24.1], [74, -28.3, 36.2], [50, -37.2, 27.0], [58, -24.4, 8.9], [82, -24.4, 8.9], [66, -45.0, 9.6], [66, -35.2, -7.5], [50, -23.0, -12.2], [82, -29.1, -21.2], [66, -18.0, -31.2], [50, -9.7, -24.1], [82, -9.7, -24.1], [58, 1.3, -36.0], [82, 8.0, -24.7], [50, 20.2, -41.3], [50, 14.5, -21.6], [74, 25.7, -38.1], [50, 35.2, -29.6], [66, 39.0, -24.4], [82, 32.9, -14.6], [50, 44.2, -12.7], [58, 25.0, -7.2], [66, 45.6, -6.4]];
-  const PALETTE = PAL_LIGHT.map((hex, i) => ({ hex, dark: PAL_DARK[i], lab: PAL_LAB[i], labD: [Math.max(30, PAL_LAB[i][0] - 14), 0, 0] }));
-  function districtInk(d) {
-    if (d < 0) return "";
-    const c = PALETTE[colorOf[d] != null && colorOf[d] >= 0 ? colorOf[d] : d % PALETTE.length];
-    return (isDark() ? c.labD : c.lab)[0] < 58 ? "#fff" : "#111";
-  }
+  // District colors follow map-coloring practice: a small set of light, harmonious fills (so district numbers and
+  // borders stay readable), assigned so no two neighboring districts share a color and neighbors-of-neighbors differ
+  // where possible. Colors repeat only on districts far apart; the numbers identify districts.
+  //   set3    ColorBrewer Set3 (designed for qualitative maps), without its gray
+  //   harmony 8 hues at equal lightness and chroma
+  //   boro    one hue family per borough (Manhattan blue, Bronx green, Brooklyn terracotta, Queens violet, Staten Island gold)
+  const PALETTE_SETS = {"set3": [{"hex": "#8dd3c7", "dark": "#306d64", "lab": [79.8, -24.5, -1.1]}, {"hex": "#ffffb3", "dark": "#949557", "lab": [98.4, -11.3, 36.4]}, {"hex": "#bebada", "dark": "#5b5972", "lab": [76.8, 7.7, -15.5]}, {"hex": "#fb8072", "dark": "#842320", "lab": [67.4, 45.6, 29.3]}, {"hex": "#80b1d3", "dark": "#20506a", "lab": [70.0, -7.6, -22.3]}, {"hex": "#fdb462", "dark": "#89540a", "lab": [78.7, 18.4, 51.6]}, {"hex": "#b3de69", "dark": "#50760f", "lab": [83.4, -32.2, 52.2]}, {"hex": "#fccde5", "dark": "#8f6a7d", "lab": [87.0, 20.3, -5.6]}, {"hex": "#bc80bd", "dark": "#653567", "lab": [61.5, 33.2, -22.6]}, {"hex": "#ccebc5", "dark": "#6a8364", "lab": [90.0, -17.0, 15.1]}, {"hex": "#ffed6f", "dark": "#908614", "lab": [93.0, -9.1, 62.1]}], "harmony": [{"hex": "#ffc1c2", "dark": "#8f5a5c", "lab": [84, 24.4, 8.9]}, {"hex": "#f6c9a6", "dark": "#836145", "lab": [84, 11.0, 23.6]}, {"hex": "#d7d4a2", "dark": "#6b6a42", "lab": [84, -6.7, 25.1]}, {"hex": "#adddb8", "dark": "#4a7154", "lab": [84, -22.5, 13.0]}, {"hex": "#8fdfdd", "dark": "#297371", "lab": [84, -25.1, -6.7]}, {"hex": "#98dbfb", "dark": "#306f89", "lab": [84, -13.0, -22.5]}, {"hex": "#c0d1ff", "dark": "#58688e", "lab": [84, 4.5, -25.6]}, {"hex": "#edc5ee", "dark": "#7e5d7f", "lab": [84, 21.3, -14.9]}], "boro": [{"hex": "#a6e7f7", "dark": "#407a87", "lab": [88, -16.9, -14.1], "boro": "M"}, {"hex": "#6cd0d8", "dark": "#00656c", "lab": [78, -27.0, -13.2], "boro": "M"}, {"hex": "#47b8db", "dark": "#00506c", "lab": [70, -20.9, -26.8], "boro": "M"}, {"hex": "#8dd9fa", "dark": "#226d88", "lab": [83, -14.8, -23.7], "boro": "M"}, {"hex": "#5dc6c3", "dark": "#005c5a", "lab": [74, -31.0, -7.7], "boro": "M"}, {"hex": "#3caec4", "dark": "#004759", "lab": [66, -24.5, -20.6], "boro": "M"}, {"hex": "#c2e6c4", "dark": "#5c795e", "lab": [88, -18.0, 12.6], "boro": "X"}, {"hex": "#abca96", "dark": "#476038", "lab": [78, -19.7, 22.6], "boro": "X"}, {"hex": "#73ba92", "dark": "#0f5133", "lab": [70, -31.3, 13.3], "boro": "X"}, {"hex": "#9bdcbe", "dark": "#397059", "lab": [83, -26.8, 8.2], "boro": "X"}, {"hex": "#acbd82", "dark": "#475526", "lab": [74, -15.5, 28.0], "boro": "X"}, {"hex": "#7aac7f", "dark": "#1c4623", "lab": [66, -26.2, 18.4], "boro": "X"}, {"hex": "#ffd0c6", "dark": "#936760", "lab": [88, 18.0, 12.6], "boro": "K"}, {"hex": "#f9adae", "dark": "#83494b", "lab": [78, 28.0, 10.8], "boro": "K"}, {"hex": "#e19a7f", "dark": "#6c3925", "lab": [70, 23.2, 24.9], "boro": "K"}, {"hex": "#fcc2a6", "dark": "#875b45", "lab": [83, 16.9, 22.4], "boro": "K"}, {"hex": "#f0a0ae", "dark": "#7b3d4a", "lab": [74, 31.6, 5.0], "boro": "K"}, {"hex": "#d78e81", "dark": "#642e26", "lab": [66, 26.2, 18.4], "boro": "K"}, {"hex": "#e1d7ff", "dark": "#746e8f", "lab": [88, 11.0, -19.1], "boro": "Q"}, {"hex": "#b3bef6", "dark": "#4c5883", "lab": [78, 8.3, -28.8], "boro": "Q"}, {"hex": "#bf9fd9", "dark": "#553c6a", "lab": [70, 22.8, -25.3], "boro": "Q"}, {"hex": "#e6c3f2", "dark": "#775c82", "lab": [83, 20.8, -18.7], "boro": "Q"}, {"hex": "#95b7f0", "dark": "#2e517d", "lab": [74, 2.2, -31.9], "boro": "Q"}, {"hex": "#a499d2", "dark": "#3e3864", "lab": [66, 16.0, -27.7], "boro": "Q"}, {"hex": "#f1dab3", "dark": "#817051", "lab": [88, 1.9, 21.9], "boro": "R"}, {"hex": "#e5b98d", "dark": "#735330", "lab": [78, 9.8, 28.4], "boro": "R"}, {"hex": "#b9ac6d", "dark": "#4f4715", "lab": [70, -4.1, 33.7], "boro": "R"}, {"hex": "#d6d19b", "dark": "#6a673c", "lab": [83, -6.3, 27.3], "boro": "R"}, {"hex": "#e3aa84", "dark": "#704629", "lab": [74, 16.5, 27.4], "boro": "R"}, {"hex": "#b89d67", "dark": "#4d3b0f", "lab": [66, 2.8, 31.9], "boro": "R"}]};
+  const PALETTE_MODE = PALETTE_SETS[window.PALETTE_MODE] ? window.PALETTE_MODE : "set3";
+  const PALETTE = PALETTE_SETS[PALETTE_MODE];
+  const BORO_KEYS = ["M", "X", "K", "Q", "R"];
   const labDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   let colorOf = []; // district index -> palette index
+  const colorEntry = (d) => PALETTE[colorOf[d] != null && colorOf[d] >= 0 ? colorOf[d] : d % PALETTE.length];
+  function districtInk(d) {
+    if (d < 0) return "";
+    return isDark() ? "#fff" : "#111";
+  }
   function assignColors() {
     const K = S.K, plan = S.plan, m = S.model;
     const nb = Array.from({ length: K }, () => new Set());
@@ -992,9 +994,10 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
       const a = plan[i]; if (a < 0) continue;
       for (let k = m.nbStart[i]; k < m.nbStart[i + 1]; k++) { const b = plan[m.nb[k]]; if (b >= 0 && b !== a) { nb[a].add(b); nb[b].add(a); } }
     }
+    const db = plan && m ? E.districtBoros(m, plan, K) : new Array(K).fill(-1);
     const col = new Array(K).fill(-1), used = new Array(PALETTE.length).fill(0);
     for (let step = 0; step < K; step++) {
-      // next: the uncolored district with the most colored neighbors, then the most neighbors
+      // next: the uncolored district with the most colored neighbors, then the most neighbors (DSATUR)
       let d = -1, bestSat = -1, bestDeg = -1;
       for (let x = 0; x < K; x++) {
         if (col[x] >= 0) continue;
@@ -1002,12 +1005,14 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
         if (sat > bestSat || (sat === bestSat && nb[x].size > bestDeg)) { d = x; bestSat = sat; bestDeg = nb[x].size; }
       }
       const two = new Set(); nb[d].forEach((y) => nb[y].forEach((z) => { if (z !== d && !nb[d].has(z)) two.add(z); }));
+      const fam = PALETTE_MODE === "boro" && db[d] >= 0 ? BORO_KEYS[db[d]] : null;
       let pick = 0, best = -Infinity;
       PALETTE.forEach((c, ci) => {
-        let d1 = 120, d2 = 120;
-        nb[d].forEach((y) => { if (col[y] >= 0) d1 = Math.min(d1, labDist(c.lab, PALETTE[col[y]].lab)); });
-        two.forEach((y) => { if (col[y] >= 0) d2 = Math.min(d2, labDist(c.lab, PALETTE[col[y]].lab)); });
-        const score = d1 + 0.35 * d2 - 1000 * used[ci]; // every district gets its own color while colors last
+        if (fam && c.boro !== fam) return;
+        let d1 = 60, d2 = 60, clash = 0, clash2 = 0;
+        nb[d].forEach((y) => { if (col[y] >= 0) { if (col[y] === ci) clash++; d1 = Math.min(d1, labDist(c.lab, PALETTE[col[y]].lab)); } });
+        two.forEach((y) => { if (col[y] >= 0) { if (col[y] === ci) clash2++; d2 = Math.min(d2, labDist(c.lab, PALETTE[col[y]].lab)); } });
+        const score = -1000 * clash - 40 * clash2 + d1 + 0.3 * d2 - 4 * used[ci];
         if (score > best) { best = score; pick = ci; }
       });
       col[d] = pick; used[pick]++;
@@ -1016,7 +1021,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
   }
   function districtColor(d) {
     if (d < 0) return isDark() ? "#26313d" : "#cfd6de";
-    const c = PALETTE[colorOf[d] != null && colorOf[d] >= 0 ? colorOf[d] : d % PALETTE.length];
+    const c = colorEntry(d);
     return isDark() ? c.dark : c.hex;
   }
   function seq(t) { // sequential: pale to deep blue-green

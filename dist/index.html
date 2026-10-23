@@ -1083,6 +1083,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     styleDots();
   }
   function recompute() {
+    if (S.active >= S.K) S.active = 0;
     S.stats = E.stats(S.model, S.plan, S.K, { lock: S.lock, pin: S.pin });
     $("cityPov").textContent = pct0(S.stats.summary.Ppov);
     $("countLine").innerHTML = `Counting <b>${fmtN(S.stats.summary.totE)} students</b> in ${countLong()} only.`;
@@ -1266,7 +1267,8 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     const D = st.districts.filter((x) => !x.empty), n = D.length || 1;
     const E = D.reduce((a, x) => a + x.E, 0), ns = D.reduce((a, x) => a + x.ns, 0);
     const sum = st.summary;
-    return { n: D.length, E, ns, avgE: E / n, avgNs: ns / n, min: Math.min(...D.map((x) => x.E)), max: Math.max(...D.map((x) => x.E)),
+    return { n: D.length, E, ns, avgE: D.length ? E / n : null, avgNs: D.length ? ns / n : null,
+      min: D.length ? Math.min(...D.map((x) => x.E)) : null, max: D.length ? Math.max(...D.map((x) => x.E)) : null,
       gap: sum.maxDevCity, race: sum.theilH, econ: sum.theilEcon, changed: sum.changed };
   }
   // dir: 1 = higher is better, -1 = lower is better, 0 = neither
@@ -1371,6 +1373,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     $("tip").hidden = true;
     if (pointers.size === 2) { endStroke(); panStart = null; const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), view: Object.assign({}, view), cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2 }; return; }
     if (S.tool === "pan" || spaceDown || e.button === 1 || e.button === 2) { panStart = { x: e.clientX, y: e.clientY, view: Object.assign({}, view) }; svg.style.cursor = "grabbing"; return; }
+    abortOptimizer();
     stroke = new Map(); const i = unitAt(e.clientX, e.clientY); if (i >= 0) applyAt(i);
   });
   svg.addEventListener("pointermove", (e) => {
@@ -1450,7 +1453,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, textarea, select")) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(e.shiftKey); return; }
-    if (e.key === " ") { spaceDown = true; e.preventDefault(); }
+    if (e.key === " ") { if (e.target.closest && e.target.closest("button, summary, a, [role=tab]")) return; spaceDown = true; e.preventDefault(); }
     const k = e.key.toLowerCase();
     if (k === "p") setTool("paint"); else if (k === "e") setTool("erase"); else if (k === "h") setTool("pan"); else if (k === "b") $("tBrush").click();
     else if (k === "]" || k === "arrowright") setActive((S.active + 1) % S.K); else if (k === "[" || k === "arrowleft") setActive((S.active + S.K - 1) % S.K);
@@ -1484,6 +1487,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     const g = e.target.dataset.g; if (!g) return;
     let m = GROUP_ORDER.filter((x) => (x === g ? e.target.checked : S.mode.includes(x))).join("");
     if (!m) { toast("Count at least one group of schools."); e.target.checked = true; return; }
+    abortOptimizer();
     S.mode = m; rebuildModel(); renderGroups(); recompute();
   });
 
@@ -1516,9 +1520,12 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     syncWeights(); syncPresetSelect(); recompute();
   }
   function pushUndoAll() {
+    abortOptimizer();
     if (!S.plan) return;
     const prev = Int16Array.from(S.plan);
-    S.undo.push({ whole: prev, pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId });
+    S.undo.push({ whole: prev, pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId, mode: S.mode, lock: S.lock });
+    if (S.undo.length > 200) S.undo.shift();
+    S.redo = [];
   }
   // whole-plan undo entries
   const _undo = undo;
@@ -1526,9 +1533,14 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     const from = redo ? S.redo : S.undo, to = redo ? S.undo : S.redo;
     const top = from[from.length - 1];
     if (top && top.whole) {
-      from.pop(); to.push({ whole: Int16Array.from(S.plan), pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId });
-      S.plan = top.whole; S.pin = top.pin; S.K = top.K; S.presetId = top.id; syncPresetSelect(); recompute(); return;
+      abortOptimizer();
+      from.pop(); to.push({ whole: Int16Array.from(S.plan), pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId, mode: S.mode, lock: S.lock });
+      S.plan = top.whole; S.pin = top.pin; S.K = top.K; S.presetId = top.id;
+      if (top.lock != null) { S.lock = top.lock; $("lockBoro").checked = S.lock; }
+      if (top.mode && top.mode !== S.mode) { S.mode = top.mode; rebuildModel(); renderGroups(); }
+      syncPresetSelect(); recompute(); return;
     }
+    abortOptimizer();
     _undo(redo);
   };
 
@@ -1538,6 +1550,12 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
   function syncWeights() { for (const k in W) $(O[k]).textContent = (+$(W[k]).value).toFixed(1); }
   for (const k in W) $(W[k]).addEventListener("input", syncWeights);
   let running = null;
+  // stop a running auto-balance without applying its result (the plan or model it was working on is being replaced)
+  function abortOptimizer() {
+    if (!running) return;
+    running.stop = true; running.abort = true;
+    $("optMsg").textContent = "Auto-balance stopped because the map changed.";
+  }
   $("runOpt").onclick = () => {
     if (running) return;
     const s = S.stats.summary;
@@ -1551,6 +1569,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     running = { stop: false };
     $("runOpt").disabled = true; $("stopOpt").disabled = false; $("optMsg").textContent = "Working…";
     const tick = () => {
+      if (running.abort) { $("runOpt").disabled = false; $("stopOpt").disabled = true; $("optBar").style.width = "0"; running = null; return; }
       const tEnd = performance.now() + 30;
       while (c < chunks && performance.now() < tEnd && !running.stop) {
         opt.step(per, t0 * Math.pow(t1 / t0, c / (chunks - 1))); c++;
@@ -1559,6 +1578,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
       $("optBar").style.width = (100 * c) / chunks + "%";
       recompute();
       if (c < chunks && !running.stop) { requestAnimationFrame(tick); return; }
+      if (running.abort) { $("runOpt").disabled = false; $("stopOpt").disabled = true; $("optBar").style.width = "0"; running = null; return; }
       opt.step(per * 3, 0);
       if (opt.score > best) { S.plan.set(bestPlan); S.pin.set(bestPin); } else best = opt.score;
       recompute();
@@ -1573,6 +1593,7 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
   $("lockBoro").onchange = (e) => { S.lock = e.target.checked; recompute(); };
   $("newSeed").onclick = () => {
     const K = Math.max(2, Math.min(60, +$("newK").value || 32));
+    if (S.lock && K < 5) { toast("With districts kept inside boroughs, a starting map needs at least 5 districts (one per borough)."); return; }
     pushUndoAll(); S.K = K; S.plan = E.seedPlan(S.model, K, (Math.random() * 1e9) | 0, S.lock); S.pin = new Uint8Array(N);
     const o = new E.Optimizer(S.model, S.plan, K, { weights: { pop: 1, compact: 1 }, maxDev: 0.05, lock: S.lock, seed: 5 }); o.anneal(150000, 1.5, 0.01);
     if (K <= 32) E.relabelToCurrent(S.model, S.plan, K);
@@ -1590,16 +1611,21 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     return `v4.${LAYER}.${S.mode}.${S.K}.${S.lock ? 1 : 0}.${pins}.${E.encodePlan(S.plan)}`;
   }
   function renderCode() { const b = $("codeBox"); if (document.activeElement !== b) b.value = code(); }
-  function loadCode(str) {
+  function loadCode(str, quiet) {
     const full = String(str).trim();
     const lm = full.match(/^v4\.([a-z]+)\./);
     if (lm && lm[1] !== LAYER && window.DATA_ALL && window.DATA_ALL[lm[1]]) { switchLayer(lm[1], full); return true; }
     const m = full.replace(/^v4\.[a-z]+\./, "v3.").match(/^v3\.([CHSR]+)\.(\d+)\.([01])\.([0-9a-z,]*)\.(.+)$/);
-    if (!m || m[5].length !== N) { toast("That code doesn't look like a plan from this tool."); return false; }
+    const K = m ? +m[2] : 0;
+    const plan = m && m[5].length === N ? E.decodePlan(m[5], N) : null;
+    if (!plan || K < 2 || K > 64 || plan.some((d) => d >= K) || [...m[5]].some((ch) => ch !== "." && "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_".indexOf(ch) < 0)) {
+      if (!quiet) toast("That code doesn't look like a plan from this tool, or it was made with an older version of the map.");
+      return false;
+    }
     pushUndoAll();
     S.mode = m[1]; rebuildModel(); renderGroups();
     S.K = +m[2]; S.lock = m[3] === "1"; $("lockBoro").checked = S.lock;
-    S.plan = E.decodePlan(m[5], N); S.pin = new Uint8Array(N);
+    S.plan = plan; S.pin = new Uint8Array(N);
     for (const t of m[4].split(",")) if (t) S.pin[parseInt(t, 36)] = 1;
     S.presetId = "custom"; syncPresetSelect(); recompute(); return true;
   }
@@ -1621,16 +1647,18 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
   $("dlCsv").onclick = () => {
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv()], { type: "text/csv" }));
     a.download = "nyc-district-plan.csv"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   function save() { try { localStorage.setItem(STORE, JSON.stringify({ code: code(), id: S.presetId })); } catch (_) {} }
   function restore() {
     try {
       if (window.PENDING_CODE && loadCode(window.PENDING_CODE)) return true;
+      if (window.PENDING_CODE) return false;
       const h = location.hash.match(/^#plan=(.+)$/);
       if (h && loadCode(decodeURIComponent(h[1]))) return true;
       const v = JSON.parse(localStorage.getItem(STORE) || "null");
       if (v && v.id && v.id !== "custom" && PRESETS.some((p) => p.id === v.id)) { loadPreset(v.id); return true; }
-      if (v && v.code) return loadCode(v.code);
+      if (v && v.code) return loadCode(v.code, true);
     } catch (_) {}
     return false;
   }

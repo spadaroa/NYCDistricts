@@ -2,6 +2,8 @@
 //   node build.js          -> dist/index.html (full page, for GitHub Pages or any web host)
 //   also writes dist/fragment.html (body-only version used for the Claude artifact preview)
 const fs = require('fs'); const r = (p) => fs.readFileSync(__dirname + '/src/' + p, 'utf8');
+// JSON data is inlined in <script>; escape '</' so text like '</script>' inside data can't end the tag early
+const rj = (p) => r(p).replace(/<\//g, '<\\/');
 const head = `<title>NYC School District Builder</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Draw your own New York City community school districts with real DOE enrollment and demographic data.">
@@ -9,7 +11,7 @@ const head = `<title>NYC School District Builder</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;600;700&display=swap">
 <style>${r('app.css')}</style>`;
 const LAYERS = ['es', 'ms', 'tract', 'area'];
-const boot = `<script>window.LAYER_ORDER=${JSON.stringify(LAYERS)};window.DATA_ALL={${LAYERS.map((k) => `${k}:${r(`data_${k}.json`)}`).join(',')}};window.PRESETS_ALL={${LAYERS.map((k) => `${k}:${r(`presets_${k}.json`)}`).join(',')}};
+const boot = `<script>window.LAYER_ORDER=${JSON.stringify(LAYERS)};window.DATA_ALL={${LAYERS.map((k) => `${k}:${rj(`data_${k}.json`)}`).join(',')}};window.PRESETS_ALL={${LAYERS.map((k) => `${k}:${rj(`presets_${k}.json`)}`).join(',')}};
 (function(){var st={},k=null;try{st=JSON.parse(window.name||'{}')||{}}catch(e){}if(st&&st.nycsdbLayer){k=st.nycsdbLayer;try{window.name=''}catch(e){}}
 if(!k){try{k=localStorage.getItem('nycsdb.layer')}catch(e){}}if(!window.DATA_ALL[k])k='es';
 window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[k];window.PENDING_CODE=(st&&st.code)||null;})();</script>`;

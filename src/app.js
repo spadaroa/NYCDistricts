@@ -565,7 +565,23 @@
     PRESETS.forEach((p) => { const o = document.createElement("option"); o.value = p.id; o.textContent = p.name; (p.id === "current" ? sel : og).appendChild(o); });
     sel.appendChild(og);
   }
-  $("resetBtn").onclick = () => { loadPreset("current"); toast("Back to today's districts. Undo (Ctrl+Z) brings your map back."); };
+  // Reset = start over with a fresh page: forget the saved map, building blocks, panel width and all settings.
+  // It asks for a second click first, since it can't be undone.
+  let resetArmed = 0;
+  $("resetBtn").onclick = () => {
+    const btn = $("resetBtn");
+    if (!resetArmed) {
+      btn.textContent = "Click again to reset"; btn.classList.add("armed");
+      resetArmed = setTimeout(() => { resetArmed = 0; btn.textContent = "Reset"; btn.classList.remove("armed"); }, 4000);
+      return;
+    }
+    clearTimeout(resetArmed); abortOptimizer();
+    try { Object.keys(localStorage).filter((k) => k.startsWith("nycsdb")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
+    try { window.name = JSON.stringify({ nycsdbLayer: "es", fresh: true }); } catch (_) {}
+    if (/^#plan=/.test(location.hash)) { try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {} }
+    document.body.style.cursor = "progress";
+    location.reload();
+  };
   $("presetSel").onchange = (e) => { if (e.target.value === "custom") return; loadPreset(e.target.value); };
   function loadPreset(id) {
     const p = PRESETS.find((x) => x.id === id); if (!p) return;

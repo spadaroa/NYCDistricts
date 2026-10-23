@@ -233,6 +233,11 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
   .topline { top: auto; bottom: 8px; right: 8px; width: 280px; max-height: calc(100% - 64px); }
 }
 @media (prefers-reduced-motion: reduce) { .topline summary svg { transition: none; } }
+.btn.armed { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+/* when the map is squeezed (panel expanded), the Topline card would cover the toolbar: keep it clear or hide it */
+.mapwrap { container-type: size; }
+.topline { max-width: calc(100% - 76px); }
+@media (min-width: 861px) { @container (max-width: 470px) { .topline { display: none; } } }
 </style></head><body>
 <div class="app">
   <header class="top">
@@ -243,7 +248,7 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
     <div class="preset">
       <label for="presetSel">Start from</label>
       <select id="presetSel"></select>
-      <button class="btn" id="resetBtn" title="Go back to today's 32 districts">Reset</button>
+      <button class="btn" id="resetBtn" title="Start over: today's districts, elementary school zones and default settings. Your current map is cleared.">Reset</button>
     </div>
   </header>
   <div class="main">
@@ -1507,7 +1512,23 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     PRESETS.forEach((p) => { const o = document.createElement("option"); o.value = p.id; o.textContent = p.name; (p.id === "current" ? sel : og).appendChild(o); });
     sel.appendChild(og);
   }
-  $("resetBtn").onclick = () => { loadPreset("current"); toast("Back to today's districts. Undo (Ctrl+Z) brings your map back."); };
+  // Reset = start over with a fresh page: forget the saved map, building blocks, panel width and all settings.
+  // It asks for a second click first, since it can't be undone.
+  let resetArmed = 0;
+  $("resetBtn").onclick = () => {
+    const btn = $("resetBtn");
+    if (!resetArmed) {
+      btn.textContent = "Click again to reset"; btn.classList.add("armed");
+      resetArmed = setTimeout(() => { resetArmed = 0; btn.textContent = "Reset"; btn.classList.remove("armed"); }, 4000);
+      return;
+    }
+    clearTimeout(resetArmed); abortOptimizer();
+    try { Object.keys(localStorage).filter((k) => k.startsWith("nycsdb")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
+    try { window.name = JSON.stringify({ nycsdbLayer: "es", fresh: true }); } catch (_) {}
+    if (/^#plan=/.test(location.hash)) { try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {} }
+    document.body.style.cursor = "progress";
+    location.reload();
+  };
   $("presetSel").onchange = (e) => { if (e.target.value === "custom") return; loadPreset(e.target.value); };
   function loadPreset(id) {
     const p = PRESETS.find((x) => x.id === id); if (!p) return;

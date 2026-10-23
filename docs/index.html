@@ -970,54 +970,38 @@ window.LAYER=k;window.DATA=window.DATA_ALL[k];window.PRESETS=window.PRESETS_ALL[
     if (t) return t === "dark";
     return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
   };
-  // District colors follow map-coloring practice: a small set of light, harmonious fills (so district numbers and
-  // borders stay readable), assigned so no two neighboring districts share a color and neighbors-of-neighbors differ
-  // where possible. Colors repeat only on districts far apart; the numbers identify districts.
-  //   set3    ColorBrewer Set3 (designed for qualitative maps), without its gray
-  //   harmony 8 hues at equal lightness and chroma
-  //   boro    one hue family per borough (Manhattan blue, Bronx green, Brooklyn terracotta, Queens violet, Staten Island gold)
-  const PALETTE_SETS = {"set3": [{"hex": "#8dd3c7", "dark": "#306d64", "lab": [79.8, -24.5, -1.1]}, {"hex": "#ffffb3", "dark": "#949557", "lab": [98.4, -11.3, 36.4]}, {"hex": "#bebada", "dark": "#5b5972", "lab": [76.8, 7.7, -15.5]}, {"hex": "#fb8072", "dark": "#842320", "lab": [67.4, 45.6, 29.3]}, {"hex": "#80b1d3", "dark": "#20506a", "lab": [70.0, -7.6, -22.3]}, {"hex": "#fdb462", "dark": "#89540a", "lab": [78.7, 18.4, 51.6]}, {"hex": "#b3de69", "dark": "#50760f", "lab": [83.4, -32.2, 52.2]}, {"hex": "#fccde5", "dark": "#8f6a7d", "lab": [87.0, 20.3, -5.6]}, {"hex": "#bc80bd", "dark": "#653567", "lab": [61.5, 33.2, -22.6]}, {"hex": "#ccebc5", "dark": "#6a8364", "lab": [90.0, -17.0, 15.1]}, {"hex": "#ffed6f", "dark": "#908614", "lab": [93.0, -9.1, 62.1]}], "harmony": [{"hex": "#ffc1c2", "dark": "#8f5a5c", "lab": [84, 24.4, 8.9]}, {"hex": "#f6c9a6", "dark": "#836145", "lab": [84, 11.0, 23.6]}, {"hex": "#d7d4a2", "dark": "#6b6a42", "lab": [84, -6.7, 25.1]}, {"hex": "#adddb8", "dark": "#4a7154", "lab": [84, -22.5, 13.0]}, {"hex": "#8fdfdd", "dark": "#297371", "lab": [84, -25.1, -6.7]}, {"hex": "#98dbfb", "dark": "#306f89", "lab": [84, -13.0, -22.5]}, {"hex": "#c0d1ff", "dark": "#58688e", "lab": [84, 4.5, -25.6]}, {"hex": "#edc5ee", "dark": "#7e5d7f", "lab": [84, 21.3, -14.9]}], "boro": [{"hex": "#a6e7f7", "dark": "#407a87", "lab": [88, -16.9, -14.1], "boro": "M"}, {"hex": "#6cd0d8", "dark": "#00656c", "lab": [78, -27.0, -13.2], "boro": "M"}, {"hex": "#47b8db", "dark": "#00506c", "lab": [70, -20.9, -26.8], "boro": "M"}, {"hex": "#8dd9fa", "dark": "#226d88", "lab": [83, -14.8, -23.7], "boro": "M"}, {"hex": "#5dc6c3", "dark": "#005c5a", "lab": [74, -31.0, -7.7], "boro": "M"}, {"hex": "#3caec4", "dark": "#004759", "lab": [66, -24.5, -20.6], "boro": "M"}, {"hex": "#c2e6c4", "dark": "#5c795e", "lab": [88, -18.0, 12.6], "boro": "X"}, {"hex": "#abca96", "dark": "#476038", "lab": [78, -19.7, 22.6], "boro": "X"}, {"hex": "#73ba92", "dark": "#0f5133", "lab": [70, -31.3, 13.3], "boro": "X"}, {"hex": "#9bdcbe", "dark": "#397059", "lab": [83, -26.8, 8.2], "boro": "X"}, {"hex": "#acbd82", "dark": "#475526", "lab": [74, -15.5, 28.0], "boro": "X"}, {"hex": "#7aac7f", "dark": "#1c4623", "lab": [66, -26.2, 18.4], "boro": "X"}, {"hex": "#ffd0c6", "dark": "#936760", "lab": [88, 18.0, 12.6], "boro": "K"}, {"hex": "#f9adae", "dark": "#83494b", "lab": [78, 28.0, 10.8], "boro": "K"}, {"hex": "#e19a7f", "dark": "#6c3925", "lab": [70, 23.2, 24.9], "boro": "K"}, {"hex": "#fcc2a6", "dark": "#875b45", "lab": [83, 16.9, 22.4], "boro": "K"}, {"hex": "#f0a0ae", "dark": "#7b3d4a", "lab": [74, 31.6, 5.0], "boro": "K"}, {"hex": "#d78e81", "dark": "#642e26", "lab": [66, 26.2, 18.4], "boro": "K"}, {"hex": "#e1d7ff", "dark": "#746e8f", "lab": [88, 11.0, -19.1], "boro": "Q"}, {"hex": "#b3bef6", "dark": "#4c5883", "lab": [78, 8.3, -28.8], "boro": "Q"}, {"hex": "#bf9fd9", "dark": "#553c6a", "lab": [70, 22.8, -25.3], "boro": "Q"}, {"hex": "#e6c3f2", "dark": "#775c82", "lab": [83, 20.8, -18.7], "boro": "Q"}, {"hex": "#95b7f0", "dark": "#2e517d", "lab": [74, 2.2, -31.9], "boro": "Q"}, {"hex": "#a499d2", "dark": "#3e3864", "lab": [66, 16.0, -27.7], "boro": "Q"}, {"hex": "#f1dab3", "dark": "#817051", "lab": [88, 1.9, 21.9], "boro": "R"}, {"hex": "#e5b98d", "dark": "#735330", "lab": [78, 9.8, 28.4], "boro": "R"}, {"hex": "#b9ac6d", "dark": "#4f4715", "lab": [70, -4.1, 33.7], "boro": "R"}, {"hex": "#d6d19b", "dark": "#6a673c", "lab": [83, -6.3, 27.3], "boro": "R"}, {"hex": "#e3aa84", "dark": "#704629", "lab": [74, 16.5, 27.4], "boro": "R"}, {"hex": "#b89d67", "dark": "#4d3b0f", "lab": [66, 2.8, 31.9], "boro": "R"}]};
-  const PALETTE_MODE = PALETTE_SETS[window.PALETTE_MODE] ? window.PALETTE_MODE : "set3";
-  const PALETTE = PALETTE_SETS[PALETTE_MODE];
-  const BORO_KEYS = ["M", "X", "K", "Q", "R"];
+  // District colors: ColorBrewer Set3 hues, each in three steps (lighter tint, the Set3 color, deeper shade),
+  // for 33 colors. Each district number keeps the same color in every plan. Colors were matched to today's map so
+  // neighboring districts never share a hue family and look as different as possible; the examples reuse today's
+  // district numbers for the same areas, so they keep that contrast. Districts above 32 pick from the same colors
+  // to differ from their neighbors.
+  const PALETTE = [{"hex": "#bde8e0", "dark": "#597b75", "lab": [88.9, -15.4, -0.7], "hue": 0, "step": 0}, {"hex": "#8dd3c7", "dark": "#2f675f", "lab": [79.8, -24.5, -1.1], "hue": 0, "step": 1}, {"hex": "#61b0a4", "dark": "#004b43", "lab": [66.7, -27.3, -1.4], "hue": 0, "step": 2}, {"hex": "#f4f3c5", "dark": "#868562", "lab": [94.9, -7.0, 22.4], "hue": 1, "step": 0}, {"hex": "#f5f5aa", "dark": "#86874d", "lab": [95.0, -11.2, 36.2], "hue": 1, "step": 1}, {"hex": "#d9da87", "dark": "#6c6f2f", "lab": [85.3, -12.5, 40.7], "hue": 1, "step": 2}, {"hex": "#d7d4e9", "dark": "#6d6b7a", "lab": [85.7, 5.0, -9.9], "hue": 2, "step": 0}, {"hex": "#bebada", "dark": "#56546c", "lab": [76.8, 7.7, -15.5], "hue": 2, "step": 1}, {"hex": "#9b97b9", "dark": "#423f58", "lab": [63.8, 8.5, -17.1], "hue": 2, "step": 2}, {"hex": "#f9a89c", "dark": "#80453e", "lab": [76.4, 28.4, 18.4], "hue": 3, "step": 0}, {"hex": "#fb8072", "dark": "#7c211e", "lab": [67.4, 45.6, 29.3], "hue": 3, "step": 1}, {"hex": "#db574c", "dark": "#811919", "lab": [54.4, 51.0, 33.2], "hue": 3, "step": 2}, {"hex": "#abc7dd", "dark": "#485e6f", "lab": [78.9, -4.6, -14.1], "hue": 4, "step": 0}, {"hex": "#80b1d3", "dark": "#1f4b64", "lab": [70.0, -7.6, -22.3], "hue": 4, "step": 1}, {"hex": "#558fb4", "dark": "#0c4763", "lab": [57.0, -8.3, -25.2], "hue": 4, "step": 2}, {"hex": "#ffd3a0", "dark": "#8a6a44", "lab": [87.2, 8.6, 31.0], "hue": 5, "step": 0}, {"hex": "#fdb462", "dark": "#82500c", "lab": [78.7, 18.4, 51.6], "hue": 5, "step": 1}, {"hex": "#da9033", "dark": "#673600", "lab": [65.8, 20.4, 57.9], "hue": 5, "step": 2}, {"hex": "#daf2aa", "dark": "#70844d", "lab": [92.3, -19.7, 32.2], "hue": 6, "step": 0}, {"hex": "#b3de69", "dark": "#4d7111", "lab": [83.4, -32.2, 52.2], "hue": 6, "step": 1}, {"hex": "#89bb37", "dark": "#275200", "lab": [70.3, -36.1, 58.4], "hue": 6, "step": 2}, {"hex": "#ffe9f8", "dark": "#8e7e89", "lab": [94.4, 10.0, -4.5], "hue": 7, "step": 0}, {"hex": "#fccde5", "dark": "#896578", "lab": [87.0, 20.3, -5.6], "hue": 7, "step": 1}, {"hex": "#daa8c2", "dark": "#6a4559", "lab": [74.1, 22.4, -6.2], "hue": 7, "step": 2}, {"hex": "#c7a0c6", "dark": "#5b3e5a", "lab": [70.4, 20.9, -14.0], "hue": 8, "step": 0}, {"hex": "#bc80bd", "dark": "#5e3160", "lab": [61.5, 33.2, -22.6], "hue": 8, "step": 1}, {"hex": "#9c5c9f", "dark": "#612f64", "lab": [48.5, 36.9, -25.6], "hue": 8, "step": 2}, {"hex": "#e3f6de", "dark": "#798875", "lab": [95.0, -10.5, 9.4], "hue": 9, "step": 0}, {"hex": "#ccebc5", "dark": "#667d61", "lab": [90.0, -17.0, 15.1], "hue": 9, "step": 1}, {"hex": "#a5c79e", "dark": "#445d3f", "lab": [76.9, -19.1, 16.8], "hue": 9, "step": 2}, {"hex": "#fff2a6", "dark": "#8d854a", "lab": [95.0, -6.4, 38.3], "hue": 10, "step": 0}, {"hex": "#ffed6f", "dark": "#8a8018", "lab": [93.0, -9.1, 62.1], "hue": 10, "step": 1}, {"hex": "#d8c938", "dark": "#666100", "lab": [80.0, -10.3, 69.5], "hue": 10, "step": 2}];
+  const FIXED_COLOR = [0, 31, 13, 9, 18, 23, 30, 8, 10, 7, 28, 32, 27, 14, 25, 17, 20, 15, 26, 5, 22, 2, 12, 11, 19, 1, 29, 24, 16, 21, 3, 4]; // district index (0-31) -> palette index
   const labDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-  let colorOf = []; // district index -> palette index
+  let colorOf = FIXED_COLOR.slice();
   const colorEntry = (d) => PALETTE[colorOf[d] != null && colorOf[d] >= 0 ? colorOf[d] : d % PALETTE.length];
   function districtInk(d) {
     if (d < 0) return "";
     return isDark() ? "#fff" : "#111";
   }
   function assignColors() {
-    const K = S.K, plan = S.plan, m = S.model;
-    const nb = Array.from({ length: K }, () => new Set());
+    const K = S.K;
+    colorOf = FIXED_COLOR.slice(0, Math.min(K, 32));
+    if (K <= 32) return;
+    // more than 32 districts: give the extra ones the color farthest from their current neighbors
+    const plan = S.plan, m = S.model, nb = Array.from({ length: K }, () => new Set());
     if (plan && m) for (let i = 0; i < m.n; i++) {
       const a = plan[i]; if (a < 0) continue;
       for (let k = m.nbStart[i]; k < m.nbStart[i + 1]; k++) { const b = plan[m.nb[k]]; if (b >= 0 && b !== a) { nb[a].add(b); nb[b].add(a); } }
     }
-    const db = plan && m ? E.districtBoros(m, plan, K) : new Array(K).fill(-1);
-    const col = new Array(K).fill(-1), used = new Array(PALETTE.length).fill(0);
-    for (let step = 0; step < K; step++) {
-      // next: the uncolored district with the most colored neighbors, then the most neighbors (DSATUR)
-      let d = -1, bestSat = -1, bestDeg = -1;
-      for (let x = 0; x < K; x++) {
-        if (col[x] >= 0) continue;
-        let sat = 0; nb[x].forEach((y) => { if (col[y] >= 0) sat++; });
-        if (sat > bestSat || (sat === bestSat && nb[x].size > bestDeg)) { d = x; bestSat = sat; bestDeg = nb[x].size; }
-      }
-      const two = new Set(); nb[d].forEach((y) => nb[y].forEach((z) => { if (z !== d && !nb[d].has(z)) two.add(z); }));
-      const fam = PALETTE_MODE === "boro" && db[d] >= 0 ? BORO_KEYS[db[d]] : null;
+    for (let d = 32; d < K; d++) {
       let pick = 0, best = -Infinity;
       PALETTE.forEach((c, ci) => {
-        if (fam && c.boro !== fam) return;
-        let d1 = 60, d2 = 60, clash = 0, clash2 = 0;
-        nb[d].forEach((y) => { if (col[y] >= 0) { if (col[y] === ci) clash++; d1 = Math.min(d1, labDist(c.lab, PALETTE[col[y]].lab)); } });
-        two.forEach((y) => { if (col[y] >= 0) { if (col[y] === ci) clash2++; d2 = Math.min(d2, labDist(c.lab, PALETTE[col[y]].lab)); } });
-        const score = -1000 * clash - 40 * clash2 + d1 + 0.3 * d2 - 4 * used[ci];
-        if (score > best) { best = score; pick = ci; }
+        let d1 = 60; nb[d].forEach((y) => { if (colorOf[y] != null) d1 = Math.min(d1, labDist(c.lab, PALETTE[colorOf[y]].lab)); });
+        if (d1 > best) { best = d1; pick = ci; }
       });
-      col[d] = pick; used[pick]++;
+      colorOf[d] = pick;
     }
-    colorOf = col;
   }
   function districtColor(d) {
     if (d < 0) return isDark() ? "#26313d" : "#cfd6de";

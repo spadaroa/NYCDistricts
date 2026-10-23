@@ -28,6 +28,10 @@
       </div>
       <div class="brushchip" id="brushchip"><span class="sw" id="brushSw"></span><span id="brushTxt"></span></div>
       <div class="legend" id="legend" hidden></div>
+      <details class="topline" id="topline" open>
+        <summary><span>Topline <span class="tl-sub">· today vs. this plan</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="tl-body" id="toplineBody"></div>
+      </details>
       <div class="tip" id="tip" hidden></div>
     </div>
     <aside class="panel">
@@ -40,7 +44,7 @@
         <button role="tab" aria-selected="false" data-tab="share">Save &amp; share</button>
         <button role="tab" aria-selected="false" data-tab="about">About</button>
       </div>
-      <button class="expand" id="expandBtn" aria-pressed="false" title="Widen the panel over the map" aria-label="Expand panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l-6 6 6 6M4 12h11M20 4v16"/></svg><span class="sr">Expand</span></button>
+      <button class="expand" id="expandBtn" aria-pressed="false" title="Widen the panel over the map" aria-label="Expand panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l-6 6 6 6M4 12h11M20 4v16"/></svg><span class="vh">Expand</span></button>
       </div>
 
       <section class="pane" data-pane="plan">
@@ -50,7 +54,7 @@
         </div>
         <div>
           <h2>Building blocks</h2>
-          <div class="row"><label for="layerSel" class="sr">Building blocks</label><select id="layerSel" style="flex:1;min-width:0"></select></div>
+          <div class="row"><label for="layerSel" class="vh">Building blocks</label><select id="layerSel" style="flex:1;min-width:0"></select></div>
           <p class="note" id="layerDesc" style="margin:6px 0 0"></p>
         </div>
         <p class="countline" id="countLine"></p>
@@ -167,7 +171,7 @@
         <p class="disclaimer"><b>A personal project.</b> This tool is an independent, personal project. It is not affiliated with, produced by, or endorsed by New York City Public Schools (the NYC Department of Education). It uses only publicly available data, and the plans in it are illustrations, not proposals.</p>
         <div>
           <h2>How it works</h2>
-          <p>You can build districts from four kinds of building blocks (Plan tab): DOE elementary school zones, DOE middle school zones (elementary zones in districts with middle school choice), 2020 Census tracts, or school areas (the part of each district nearest each school building). Every kind is split at the official district lines. The description below uses elementary zones.</p>
+          <p>You can build districts from four kinds of building blocks (Plan tab): DOE elementary school zones, DOE middle school zones (elementary zones in districts with middle school choice), 2020 Census tracts, or school areas (the city blocks in each district nearest each school building, so their edges follow streets). Every kind is split at the official district lines. The description below uses elementary zones.</p>
           <p>The map is built from DOE's elementary school attendance zones (2024–25). Where a zone crosses a community district line it is split at the official DCP line, so today's districts match the official map exactly. Land outside every zone (parks, marshes) is joined to the next zone in the same district. Districts are made by moving whole zones; every school inside a zone moves with it.</p>
           <p>A few schools report to a different district than the one they sit in, such as Beacon High School (District 3, located in District 2). They don't change the map. By default they are counted in the district they report to. Once you move the zone they sit in, they move with that zone.</p>
           <p>The scorecard compares your plan with today's districts, counting the same schools:</p>
@@ -189,6 +193,7 @@
             <li>Enrollment and demographics: NYC DOE <a href="https://infohub.nyced.org/reports/students-and-schools/school-quality/information-and-data-overview" target="_blank" rel="noopener">Demographic Snapshot</a>, <span id="yearTxt"></span>.</li>
             <li>Building locations: LCGMS addresses geocoded with NYC Planning's <a href="https://geosearch.planninglabs.nyc/" target="_blank" rel="noopener">GeoSearch</a>, checked against each school's geographic district.</li>
             <li>Zones: NYC Open Data <a href="https://data.cityofnewyork.us/Education/School-Zones-2024-2025-Elementary-School-/cmjf-yawu" target="_blank" rel="noopener">School Zones 2024–2025 (Elementary School)</a>.</li>
+            <li>School areas: NYC Open Data <a href="https://data.cityofnewyork.us/City-Government/2020-Census-Blocks/wmsu-5muw" target="_blank" rel="noopener">2020 Census Blocks</a>.</li>
             <li>District lines: NYC Open Data <a href="https://data.cityofnewyork.us/City-Government/School-Districts/8ugf-3d8u" target="_blank" rel="noopener">School Districts</a> (DCP).</li>
           </ul>
           <p class="note" id="dataNote"></p>
@@ -207,3 +212,4 @@
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+

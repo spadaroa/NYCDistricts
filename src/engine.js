@@ -151,7 +151,7 @@
       s.perim += p;
       assignedE += m.E[i];
     }
-    let maxDev = 0, sumDev2 = 0, nonContig = 0, ppSum = 0, used = 0, withinPov = 0, splitB = 0;
+    let maxDev = 0, sumDev2 = 0, nonContig = 0, ppSum = 0, used = 0, splitB = 0;
     const Ent = entropy(m.Pg); let H = 0, Dpov = 0, Hecon = 0;
     const EntP = entropy([m.Ppov, 1 - m.Ppov]);
     let usedE = 0, nUsed = 0; for (const s of D) if (s.units) { usedE += s.E; nUsed++; }
@@ -174,7 +174,6 @@
       s.cx /= s.area; s.cy /= s.area;
       s.comps = components(m, plan, s.d); if (s.comps > 1) nonContig++;
       if (s.boros.size > 1) splitB++;
-      if (Math.abs(s.povPct - P) <= 0.1) withinPov++;
       // distance of this district's mix from the city's (relative entropy, scaled by city entropy). Never negative;
       // the enrollment-weighted average over districts equals the plan's Theil's H.
       const kl = (ps, Ps) => ps.reduce((a, p, g) => (p > 0 && Ps[g] > 0 ? a + p * Math.log(p / Ps[g]) : a), 0);
@@ -208,7 +207,7 @@
         avgPP: ppSum / Math.max(1, used), theilH: Ent > 0 ? H / (E * Ent) : 0, dissimPov: Dpov / 2,
         theilEcon: EntP > 0 ? Hecon / (E * EntP) : 0, maxDevCity, cityAvg,
         withinRace: wN ? wR / wN : 0, withinEcon: wN ? wE / wN : 0,
-        withinPov, changed: changedE / E, unassigned, unassignedE, totE: m.totE, Ppov: P, Pg: m.Pg,
+        changed: changedE / E, unassigned, unassignedE, totE: m.totE, Ppov: P, Pg: m.Pg,
       },
     };
   }

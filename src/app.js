@@ -144,7 +144,7 @@
     S.stats = E.stats(S.model, S.plan, S.K, { lock: S.lock, pin: S.pin });
     $("cityPov").textContent = pct0(S.stats.summary.Ppov);
     $("countLine").innerHTML = `Counting <b>${fmtN(S.stats.summary.totE)} students</b> in ${countLong()} only.`;
-    renderColors(); renderLabels(); renderScore(); renderSwatches(); renderTable(); renderBrush(); renderCode(); save();
+    renderColors(); renderLabels(); renderScore(); renderSwatches(); renderTable(); renderBrush(); renderTopline(); renderCode(); save();
   }
   let rq = 0;
   function recomputeSoon() { if (rq) return; rq = requestAnimationFrame(() => { rq = 0; recompute(); }); }
@@ -247,12 +247,11 @@
       ["Compactness", "Average Polsby-Popper, higher is rounder", s.avgPP.toFixed(2), chip(s.avgPP - b.avgPP, false, (v) => v.toFixed(2), 0.005)],
       ["Racial/ethnic segregation", "Theil's H, lower is more integrated", s.theilH.toFixed(3), chip(s.theilH - b.theilH, true, (v) => v.toFixed(3), 0.0005)],
       ["Economic segregation", "Theil's H for poverty, lower is more even", s.theilEcon.toFixed(3), chip(s.theilEcon - b.theilEcon, true, (v) => v.toFixed(3), 0.0005)],
-      ["Districts near city poverty rate", `Within 10 points of the ${pct0(s.Ppov)} rate for counted students`, `${s.withinPov} of ${s.used}`, chip(s.withinPov - b.withinPov, false, (v) => v, 0.5)],
       ["Students moved", "Counted students whose school would be in a different district than today", pct0(s.changed), ""],
       ["Districts in pieces", "Zones not connected to the rest of their district", String(s.nonContig), s.nonContig ? `<span class="pill bad">fix</span>` : `<span class="pill good">none</span>`],
       ["Unassigned buildings", s.unassigned ? `${fmtN(s.unassignedE)} students not in any district` : "Every building is in a district", String(s.unassigned), s.unassigned ? `<span class="pill warn">${s.unassigned}</span>` : `<span class="pill good">none</span>`],
     ];
-    if (S.lock && s.crossBoro) rows.splice(6, 0, ["Districts crossing boroughs", "Allowed only when the borough rule is off", String(s.crossBoro), `<span class="pill warn">check</span>`]);
+    if (S.lock && s.crossBoro) rows.splice(5, 0, ["Districts crossing boroughs", "Allowed only when the borough rule is off", String(s.crossBoro), `<span class="pill warn">check</span>`]);
     $("score").innerHTML = rows.map(([k, sub, v, c]) => `<div class="sr"><span class="k">${k}<small>${sub}</small></span><span class="v">${v}</span><span class="c">${c}</span></div>`).join("");
     void pts;
   }
@@ -311,13 +310,81 @@
     if (th) { const k = th.dataset.k; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : 1 }; renderTable(); return; }
     const tr = e.target.closest("tr[data-d]"); if (tr) setActive(+tr.dataset.d);
   });
-  function setActive(d) { S.active = d; if (S.tool !== "paint") setTool("paint"); renderSwatches(); renderTable(); renderEdges(); renderBrush(); }
+  function setActive(d) { S.active = d; if (S.tool !== "paint") setTool("paint"); renderSwatches(); renderTable(); renderEdges(); renderBrush(); renderTopline(); }
   function renderBrush() {
     $("brushSw").style.background = S.tool === "erase" ? "transparent" : districtColor(S.active);
     const s = S.stats && S.stats.districts[S.active];
     const what = S.tool === "erase" ? "Erasing" : S.tool === "pan" ? `Moving the map · press Paint (P) to draw with District ${S.active + 1}` : `District ${S.active + 1}`;
     const extra = S.tool === "paint" && s && !s.empty ? ` · ${fmtN(s.E)} ${countShort()} (${s.devCity > 0 ? "+" : ""}${pct0(s.devCity)} vs. citywide average)` : "";
     $("brushTxt").textContent = what + extra + (S.brush > 1 && S.tool !== "pan" ? " · wide brush" : "");
+  }
+
+  // ---------- topline window (floating over the map) ----------
+  function topAgg(st) {
+    const D = st.districts.filter((x) => !x.empty), n = D.length || 1;
+    const E = D.reduce((a, x) => a + x.E, 0), ns = D.reduce((a, x) => a + x.ns, 0);
+    const sum = st.summary;
+    return { n: D.length, E, ns, avgE: E / n, avgNs: ns / n, min: Math.min(...D.map((x) => x.E)), max: Math.max(...D.map((x) => x.E)),
+      gap: sum.maxDevCity, race: sum.theilH, econ: sum.theilEcon, changed: sum.changed };
+  }
+  // dir: 1 = higher is better, -1 = lower is better, 0 = neither
+  function tlRow(label, a, b, fmt, dfmt, dir, tol, title) {
+    let dl = "–", cls = "";
+    if (a != null && b != null) {
+      const d = b - a;
+      if (Math.abs(d) >= (tol || 1e-9)) { dl = (d > 0 ? "+" : "−") + dfmt(Math.abs(d)); if (dir) cls = (dir > 0 ? d > 0 : d < 0) ? " good" : " bad"; }
+    }
+    return `<tr${title ? ` title="${title}"` : ""}><td>${label}</td><td>${a == null ? "–" : fmt(a)}</td><td class="p">${b == null ? "–" : fmt(b)}</td><td class="dl${cls}">${dl}</td></tr>`;
+  }
+  const tlHead = (a, b) => `<thead><tr><th></th><th>${a}</th><th>${b}</th><th>Change</th></tr></thead>`;
+  function renderTopline() {
+    if (!S.stats || !S.base) return;
+    const t = topAgg(S.base), p = topAgg(S.stats), n0 = (v) => fmtN(v), n1 = (v) => v.toFixed(1), h3 = (v) => v.toFixed(3);
+    const pts = (v) => Math.round(v * 100) + " pts", pts1 = (v) => (v * 100).toFixed(1) + " pts";
+    const city = [
+      tlRow("Districts", t.n, p.n, n0, n0, 0),
+      tlRow("Schools", t.ns, p.ns, n0, n0, 0, 0.5, "Counted schools placed in a district"),
+      tlRow("Students", t.E, p.E, n0, n0, 0, 0.5, countShort() + " placed in a district"),
+      tlRow("Students / district", t.avgE, p.avgE, n0, n0, 0, 0.5),
+      tlRow("Schools / district", t.avgNs, p.avgNs, n1, n1, 0, 0.05),
+      tlRow("Smallest district", t.min, p.min, n0, n0, 0, 0.5, "Students in the smallest district"),
+      tlRow("Largest district", t.max, p.max, n0, n0, 0, 0.5, "Students in the largest district"),
+      tlRow("Max gap from avg", t.gap, p.gap, (v) => "±" + pct0(v), pts, -1, 0.005, "Biggest difference between any district and the average district citywide"),
+      tlRow("Race segregation (H)", t.race, p.race, h3, h3, -1, 0.0005, "Theil's H across districts: 0 = every district matches the city mix"),
+      tlRow("Econ segregation (H)", t.econ, p.econ, h3, h3, -1, 0.0005, "Theil's H for poverty across districts: 0 = every district has the city poverty rate"),
+      `<tr title="Counted students whose school would be in a different district than today"><td>Students moved</td><td>–</td><td class="p">${pct0(p.changed)}</td><td class="dl">${p.changed > 0 ? fmtN(p.changed * S.stats.summary.totE) : "–"}</td></tr>`,
+    ].join("");
+    const d = S.active, a = d < 32 ? S.base.districts[d] : null, b = S.stats.districts[d];
+    const A = a && !a.empty ? a : null, B = b && !b.empty ? b : null;
+    const gv = (x, k) => (x ? districtValue(x, k) : null);
+    const pr = (label, k, fmt, dfmt, tol) => tlRow(label, gv(A, k), gv(B, k), fmt, dfmt, 0, tol);
+    const boro = (x) => (x && E.BORO_NAMES[E.BOROS[x.boro]]) || "–";
+    const dist = A || B ? [
+      tlRow("Students", A && A.E, B && B.E, n0, n0, 0, 0.5),
+      tlRow("Schools", A && A.ns, B && B.ns, n0, n0, 0, 0.5),
+      pr("vs. city avg", "devCity", (v) => (v > 0 ? "+" : "") + pct0(v), pts, 0.005),
+      pr("Poverty", "pov", pct0, pts1, 0.0005),
+      pr("ENI", "eni", (v) => v.toFixed(2), (v) => v.toFixed(2), 0.005),
+      pr("ELL / ENL", "ell", pct0, pts1, 0.0005),
+      pr("SWD", "swd", pct0, pts1, 0.0005),
+      pr("Asian", "asian", pct0, pts1, 0.0005),
+      pr("Black", "black", pct0, pts1, 0.0005),
+      pr("Hispanic", "hisp", pct0, pts1, 0.0005),
+      pr("White", "white", pct0, pts1, 0.0005),
+    ].join("") : "";
+    const where = B ? (A && A.boro !== B.boro ? `${boro(A)} → ${boro(B)}` : boro(B)) : "";
+    $("toplineBody").innerHTML =
+      `<h3>Citywide</h3><table>${tlHead("Today", "Plan")}<tbody>${city}</tbody></table>` +
+      `<h3><span class="sw" style="background:${districtColor(d)}"></span>District ${d + 1}${where ? ` <span style="text-transform:none;letter-spacing:0;font-weight:400">· ${where}</span>` : ""}</h3>` +
+      (dist ? `<table>${tlHead("Today", "Plan")}<tbody>${dist}</tbody></table>` : `<p class="note">District ${d + 1} has no buildings in today's map or this plan.</p>`) +
+      (!B && A ? `<p class="note">District ${d + 1} has no buildings in this plan.</p>` : "") +
+      `<p class="note">Follows the district you paint with. Counts ${countShort()}.</p>`;
+  }
+  {
+    const tl = $("topline"); let open = null;
+    try { open = localStorage.getItem("nycsdb.topline"); } catch (_) {}
+    tl.open = open == null ? window.innerWidth > 860 : open === "1";
+    tl.addEventListener("toggle", () => { try { localStorage.setItem("nycsdb.topline", tl.open ? "1" : "0"); } catch (_) {} });
   }
 
   // the district a school is counted in: its admin district while its zone is untouched, else its zone's district

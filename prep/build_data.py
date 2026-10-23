@@ -31,82 +31,98 @@ for d in list(range(13, 24)) + [32]: BORO_OF_DIST[d] = "K"
 for d in range(24, 31): BORO_OF_DIST[d] = "Q"
 BORO_OF_DIST[31] = "R"
 
-# ---------- roster (LCGMS) ----------
-L = pd.read_csv(f"{RAW}/lcgms/lcgms.csv", header=1, dtype=str); L.columns = [c.strip() for c in L.columns]
-L = L[(L["Status Description"].str.strip() == "Open") & L["ATS System Code"].notna()]
-def clean(v):
-    v = "" if pd.isna(v) else str(v).strip()
-    return "" if v.upper() == "NULL" else v
-def group_of(r):
-    if clean(r["Managed By Name"]) == "Charter": return "R"          # charter
-    ad = clean(r["Administrative District Code"])
-    if ad == "75": return "S"                                       # D75 citywide special ed
-    if ad == "79" or "ALTERNATIVE" in clean(r["Administrative District Name"]).upper(): return "A"  # D79
-    if clean(r["HighSchool Network Name"]): return "H"              # high school superintendent
-    return "C"                                                      # community superintendent
+FROM_JSON = os.environ.get("FROM_JSON")
+if not FROM_JSON:
+    # ---------- roster (LCGMS) ----------
+    L = pd.read_csv(f"{RAW}/lcgms/lcgms.csv", header=1, dtype=str); L.columns = [c.strip() for c in L.columns]
+    L = L[(L["Status Description"].str.strip() == "Open") & L["ATS System Code"].notna()]
+    def clean(v):
+        v = "" if pd.isna(v) else str(v).strip()
+        return "" if v.upper() == "NULL" else v
+    def group_of(r):
+        if clean(r["Managed By Name"]) == "Charter": return "R"          # charter
+        ad = clean(r["Administrative District Code"])
+        if ad == "75": return "S"                                       # D75 citywide special ed
+        if ad == "79" or "ALTERNATIVE" in clean(r["Administrative District Name"]).upper(): return "A"  # D79
+        if clean(r["HighSchool Network Name"]): return "H"              # high school superintendent
+        return "C"                                                      # community superintendent
 
-# ---------- demographics ----------
-demo = pd.read_excel(f"{RAW}/demo.xlsx", sheet_name="School")
-demo = demo[demo.Year == YEAR].set_index("DBN")
-def num(v, total=None):
-    if isinstance(v, (int, float)) and not pd.isna(v): return float(v)
-    s = str(v).strip()
-    if s.startswith("Above 95"): return 0.97 * total if total is not None else 0.97
-    if s.startswith("Below 5"): return 0.03 * total if total is not None else 0.03
-    try: return float(s.replace("%", "")) / (100 if "%" in s else 1)
-    except ValueError: return 0.0
-GR = ["Grade 3K", "Grade PK (Half Day & Full Day)", "Grade K"] + [f"Grade {i}" for i in range(1, 13)]
+    # ---------- demographics ----------
+    demo = pd.read_excel(f"{RAW}/demo.xlsx", sheet_name="School")
+    demo = demo[demo.Year == YEAR].set_index("DBN")
+    def num(v, total=None):
+        if isinstance(v, (int, float)) and not pd.isna(v): return float(v)
+        s = str(v).strip()
+        if s.startswith("Above 95"): return 0.97 * total if total is not None else 0.97
+        if s.startswith("Below 5"): return 0.03 * total if total is not None else 0.03
+        try: return float(s.replace("%", "")) / (100 if "%" in s else 1)
+        except ValueError: return 0.0
+    GR = ["Grade 3K", "Grade PK (Half Day & Full Day)", "Grade K"] + [f"Grade {i}" for i in range(1, 13)]
 
-# ---------- locations ----------
-geo = json.load(open(f"{RAW}/geocode_cache.json"))
-fac = pd.DataFrame(json.load(open(f"{RAW}/facdb.json")) + json.load(open(f"{RAW}/facdb_charter.json")))
-fac["bblf"] = pd.to_numeric(fac.bbl, errors="coerce")
-fac_bbl = {int(r.bblf): (float(r.longitude), float(r.latitude)) for r in fac.dropna(subset=["bblf"]).itertuples()}
-loc = pd.DataFrame(json.load(open(f"{RAW}/loc1920.json")))
-loc = loc[pd.to_numeric(loc.latitude, errors="coerce").notna()]
-loc_b = {r.primary_building_code: (float(r.longitude), float(r.latitude)) for r in loc.itertuples()}
+    # ---------- locations ----------
+    geo = json.load(open(f"{RAW}/geocode_cache.json"))
+    fac = pd.DataFrame(json.load(open(f"{RAW}/facdb.json")) + json.load(open(f"{RAW}/facdb_charter.json")))
+    fac["bblf"] = pd.to_numeric(fac.bbl, errors="coerce")
+    fac_bbl = {int(r.bblf): (float(r.longitude), float(r.latitude)) for r in fac.dropna(subset=["bblf"]).itertuples()}
+    loc = pd.DataFrame(json.load(open(f"{RAW}/loc1920.json")))
+    loc = loc[pd.to_numeric(loc.latitude, errors="coerce").notna()]
+    loc_b = {r.primary_building_code: (float(r.longitude), float(r.latitude)) for r in loc.itertuples()}
 
-def candidates(r):
-    """Possible coordinates for a school, best source first."""
-    out = []
-    text = f"{r['Primary Address']}, {r['City']}, NY {str(r['Zip'])[:5]}"
-    g = geo.get(text)
-    if g: out.append(((g["lon"], g["lat"]), "geosearch"))
-    try:
-        b = int(float(r["Borough Block Lot"]))
-        if b in fac_bbl: out.append((fac_bbl[b], "facdb"))
-    except (TypeError, ValueError): pass
-    if r["Building Code"] in loc_b: out.append((loc_b[r["Building Code"]], "doe1920"))
-    return out
+    def candidates(r):
+        """Possible coordinates for a school, best source first."""
+        out = []
+        text = f"{r['Primary Address']}, {r['City']}, NY {str(r['Zip'])[:5]}"
+        g = geo.get(text)
+        if g: out.append(((g["lon"], g["lat"]), "geosearch"))
+        try:
+            b = int(float(r["Borough Block Lot"]))
+            if b in fac_bbl: out.append((fac_bbl[b], "facdb"))
+        except (TypeError, ValueError): pass
+        if r["Building Code"] in loc_b: out.append((loc_b[r["Building Code"]], "doe1920"))
+        return out
 
-schools, dropped = [], []
-for _, r in L.iterrows():
-    dbn = clean(r["ATS System Code"])
-    grp = group_of(r)
-    ad = clean(r["Administrative District Code"])
-    admin = int(ad) if ad.isdigit() and 1 <= int(ad) <= 32 and grp in "CH" else 0
-    gd = clean(r["Geographical District Code"])
-    sup = clean(r["Community School Sup Name"]) if grp == "C" else clean(r["HighSchool Network Superintendent"]) if grp == "H" else ""
-    net = clean(r["HighSchool Network Name"]) if grp == "H" else ""
-    s = dict(dbn=dbn, name=clean(r["Location Name"]).replace("�", "–"), grp=grp, admin=admin,
-             geo=int(gd) if gd.isdigit() else 0, sup=sup.title() if sup.isupper() else sup, net=net,
-             bldg=clean(r["Building Code"]), addr=clean(r["Primary Address"]), grades=clean(r["Grades Final"]))
-    if dbn in demo.index:
-        x = demo.loc[dbn]; tot = float(x["Total Enrollment"])
-        g = [float(x[c]) for c in GR]
-        s.update(n=round(tot), k8=round(sum(g[:12])), hs=round(sum(g[12:])),
-                 asian=round(num(x["# Asian and Pacific Islander"], tot)), black=round(num(x["# Black"], tot)),
-                 hisp=round(num(x["# Hispanic"], tot)), white=round(num(x["# White"], tot)),
-                 multi=round(num(x["# Multi-Racial"], tot)), native=round(num(x["# Native American"], tot)),
-                 pov=round(num(x["# Poverty"], tot)), ell=round(num(x["# English Language Learners"], tot)),
-                 swd=round(num(x["# Students with Disabilities"], tot)), eni=round(num(x["Economic Need Index"]), 3))
-    else:
-        s.update(n=0, k8=0, hs=0, asian=0, black=0, hisp=0, white=0, multi=0, native=0, pov=0, ell=0, swd=0, eni=0)
-    s["cands"] = candidates(r)
-    if not s["cands"]: dropped.append(s); continue
-    schools.append(s)
-print("schools located:", len(schools), Counter(s["grp"] for s in schools), "dropped:", len(dropped))
-for s in dropped: print("  no location:", s["dbn"], s["name"], s["n"])
+    schools, dropped = [], []
+    for _, r in L.iterrows():
+        dbn = clean(r["ATS System Code"])
+        grp = group_of(r)
+        ad = clean(r["Administrative District Code"])
+        admin = int(ad) if ad.isdigit() and 1 <= int(ad) <= 32 and grp in "CH" else 0
+        gd = clean(r["Geographical District Code"])
+        sup = clean(r["Community School Sup Name"]) if grp == "C" else clean(r["HighSchool Network Superintendent"]) if grp == "H" else ""
+        net = clean(r["HighSchool Network Name"]) if grp == "H" else ""
+        s = dict(dbn=dbn, name=clean(r["Location Name"]).replace("�", "–"), grp=grp, admin=admin,
+                 geo=int(gd) if gd.isdigit() else 0, sup=sup.title() if sup.isupper() else sup, net=net,
+                 bldg=clean(r["Building Code"]), addr=clean(r["Primary Address"]), grades=clean(r["Grades Final"]))
+        if dbn in demo.index:
+            x = demo.loc[dbn]; tot = float(x["Total Enrollment"])
+            g = [float(x[c]) for c in GR]
+            s.update(n=round(tot), k8=round(sum(g[:12])), hs=round(sum(g[12:])),
+                     asian=round(num(x["# Asian and Pacific Islander"], tot)), black=round(num(x["# Black"], tot)),
+                     hisp=round(num(x["# Hispanic"], tot)), white=round(num(x["# White"], tot)),
+                     multi=round(num(x["# Multi-Racial"], tot)), native=round(num(x["# Native American"], tot)),
+                     pov=round(num(x["# Poverty"], tot)), ell=round(num(x["# English Language Learners"], tot)),
+                     swd=round(num(x["# Students with Disabilities"], tot)), eni=round(num(x["Economic Need Index"]), 3))
+        else:
+            s.update(n=0, k8=0, hs=0, asian=0, black=0, hisp=0, white=0, multi=0, native=0, pov=0, ell=0, swd=0, eni=0)
+        s["cands"] = candidates(r)
+        if not s["cands"]: dropped.append(s); continue
+        schools.append(s)
+    print("schools located:", len(schools), Counter(s["grp"] for s in schools), "dropped:", len(dropped))
+    PULLED = __import__("datetime").date.fromtimestamp(os.path.getmtime(f"{RAW}/lcgms/lcgms.csv")).strftime("%B %-d, %Y")
+    for s in dropped: print("  no location:", s["dbn"], s["name"], s["n"])
+
+else:
+    # Rebuild from an existing area-layer file (src/data_area.json) instead of the raw roster, so one layer can be
+    # rebuilt with exactly the same schools and locations as the others. Each area-layer unit is one building.
+    _src = json.load(open(FROM_JSON)); _F = _src["meta"]["fields"]
+    schools, dropped = [], [dict(dbn=a, name=b, n=c) for a, b, c in _src["meta"]["dropped"]]
+    for u in _src["units"]:
+        ss = [dict(zip(_F, _src["schools"][si])) for si in u["s"]]
+        if not ss: continue
+        cx, cy = sum(s["x"] for s in ss) / len(ss), -sum(s["y"] for s in ss) / len(ss)
+        for s in ss: s.update(bldg=u["z"] or s["dbn"], x=cx, y=cy, geo=u["gd"]); schools.append(s)
+    PULLED = _src["meta"]["pulled"]
+    print("schools from", FROM_JSON, len(schools))
 
 # ---------- district polygons (exact DCP lines) ----------
 gj = json.load(open(f"{RAW}/districts.geojson"))
@@ -123,26 +139,27 @@ def dist_at(x, y):
     return next((d for d in dtree_keys if dpolys[d].contains(p)), None)
 by_b = defaultdict(list)
 for s in schools: by_b[s["bldg"] or s["dbn"]].append(s)
-fixed = []
-for b, ss in by_b.items():
-    # pick the first candidate (over all schools in the building) that falls in LCGMS's geographic district,
-    # else one in the right borough, else the first one
-    want = Counter(s["geo"] for s in ss if s["geo"]).most_common(1)
-    want = want[0][0] if want else None
-    cands = [c for s in ss for c in s["cands"]]
-    pick = None
-    for (lon, lat), src in cands:
-        x, y = proj(lon, lat)
-        if want and dist_at(x, y) == want: pick = (x, y, src); break
-    if pick is None and want:
+if not FROM_JSON:
+    fixed = []
+    for b, ss in by_b.items():
+        # pick the first candidate (over all schools in the building) that falls in LCGMS's geographic district,
+        # else one in the right borough, else the first one
+        want = Counter(s["geo"] for s in ss if s["geo"]).most_common(1)
+        want = want[0][0] if want else None
+        cands = [c for s in ss for c in s["cands"]]
+        pick = None
         for (lon, lat), src in cands:
-            x, y = proj(lon, lat); d = dist_at(x, y)
-            if d and BORO_OF_DIST.get(d) == BORO_OF_DIST.get(want): pick = (x, y, src); break
-    if pick is None:
-        (lon, lat), src = cands[0]; x, y = proj(lon, lat); pick = (x, y, src)
-    if pick[2] != cands[0][1] or (lambda d: d != want)(dist_at(*proj(*cands[0][0]))): fixed.append((b, ss[0]["addr"], cands[0][1], pick[2]))
-    for s in ss: s["x"], s["y"], s["locsrc"] = pick
-print("buildings where the first geocode was replaced:", len(fixed))
+            x, y = proj(lon, lat)
+            if want and dist_at(x, y) == want: pick = (x, y, src); break
+        if pick is None and want:
+            for (lon, lat), src in cands:
+                x, y = proj(lon, lat); d = dist_at(x, y)
+                if d and BORO_OF_DIST.get(d) == BORO_OF_DIST.get(want): pick = (x, y, src); break
+        if pick is None:
+            (lon, lat), src = cands[0]; x, y = proj(lon, lat); pick = (x, y, src)
+        if pick[2] != cands[0][1] or (lambda d: d != want)(dist_at(*proj(*cands[0][0]))): fixed.append((b, ss[0]["addr"], cands[0][1], pick[2]))
+        for s in ss: s["x"], s["y"], s["locsrc"] = pick
+    print("buildings where the first geocode was replaced:", len(fixed))
 # ======================================================================================
 # Building-block layers. Each one is a set of polygons split at the official district lines.
 # ======================================================================================
@@ -175,6 +192,9 @@ def split_pieces(polys, label_fn, gap_label):
             part = solid(g.intersection(dpolys[d]))
             if part.is_empty or part.area < 5000: continue
             pieces.append(dict(geom=part, gd=d, name=name, code=code))
+    return fill_gaps(pieces, gap_label)
+
+def fill_gaps(pieces, gap_label):
     # land not covered by any block (parks, marsh, slivers): merge into the neighboring block in the same district
     for d in dtree_keys:
         mine = [p for p in pieces if p["gd"] == d]
@@ -190,29 +210,58 @@ def split_pieces(polys, label_fn, gap_label):
     return pieces
 
 def school_area_pieces():
-    """Nearest-school-building areas inside each district (Voronoi of building locations)."""
-    pieces = []
+    """Nearest-school-building areas inside each district, made of whole 2020 Census blocks so the edges follow
+    streets. Each block (split at the DCP line) goes to the building nearest to it; any detached part of an area
+    then joins the neighboring area it shares the most border with, so every area is one piece."""
+    blocks = [g for _, g in load(f"{RAW}/blocks/wmsu-5muw.geojson")]
+    btree = STRtree(blocks)
     bpts = defaultdict(list)
     for b, ss in by_b.items():
         p = Point(ss[0]["x"], ss[0]["y"]); d = dist_at(p.x, p.y) or min(dtree_keys, key=lambda k: dpolys[k].distance(p))
         bpts[d].append((b, p))
-    for d, items in bpts.items():
+    pieces = []
+    for d, items in sorted(bpts.items()):
         poly = dpolys[d]
-        if len(items) == 1:
-            pieces.append(dict(geom=poly, gd=d, name=items[0][0], code=items[0][0])); continue
-        pts, seen = [], set()
-        for b, pt in items:
-            k = (round(pt.x), round(pt.y))
-            while k in seen: pt = Point(pt.x + 3, pt.y + 2); k = (round(pt.x), round(pt.y))
-            seen.add(k); pts.append(pt)
-        vg = list(shapely.voronoi_polygons(MultiPoint(pts), extend_to=poly.envelope.buffer(5000)).geoms)
-        tree = STRtree(vg)
-        for (b, _), pt in zip(items, pts):
-            c = solid(vg[int(tree.query(pt, predicate="intersects")[0])].intersection(poly), w=3, min_area=500)
-            if c.is_empty: c = pt.buffer(40)
-            names = sorted(set(s["name"] for s in by_b[b]))
-            pieces.append(dict(geom=c, gd=d, name="Area around " + (names[0] + (f" (+{len(names) - 1} more)" if len(names) > 1 else "")), code=b))
-    return pieces
+        parts = [c for c in (blocks[int(i)].intersection(poly) for i in btree.query(poly, predicate="intersects")) if c.area >= 50]
+        # the block a building stands on is that building's; buildings sharing a block share one area (the first
+        # building is its seed), and every other block goes to the nearest seed
+        ctree = STRtree(parts); taken = {}
+        for o, (b, pt) in enumerate(items):
+            hit = [int(i) for i in ctree.query(pt, predicate="intersects")] or [int(ctree.nearest(pt))]
+            taken.setdefault(hit[0], o)
+        seeds = sorted(set(taken.values()))
+        ptree = STRtree([items[o][1] for o in seeds])
+        groups = defaultdict(list)
+        for k, c in enumerate(parts): groups[taken[k] if k in taken else seeds[int(ptree.nearest(c.representative_point()))]].append(c)
+        geoms = {o: unary_union(gs).buffer(0) for o, gs in groups.items()}
+        for _ in range(6):  # give detached parts to the neighbor sharing the most border
+            moved = 0
+            for o in list(geoms):
+                g = geoms[o]
+                if g.geom_type != "MultiPolygon": continue
+                pt = items[o][1]
+                ps = sorted(g.geoms, key=lambda q: (not q.intersects(pt.buffer(1)), q.distance(pt), -q.area))
+                keep = [ps[0]]
+                for q in ps[1:]:
+                    qb = q.buffer(1)
+                    best = max(((qb.intersection(geoms[o2].boundary).length, o2) for o2 in geoms if o2 != o and geoms[o2].intersects(qb)), default=(0, None))
+                    if best[1] is None or best[0] < 1: keep.append(q); continue
+                    geoms[best[1]] = unary_union([geoms[best[1]], q]).buffer(0); moved += 1
+                geoms[o] = unary_union(keep).buffer(0)
+            if not moved: break
+        # buildings left without blocks of their own (e.g., two buildings on one block) share the area they sit in
+        members = defaultdict(list)
+        for o, (b, pt) in enumerate(items):
+            if o in geoms and not geoms[o].is_empty: members[o].append(b); continue
+            host = min(geoms, key=lambda k: geoms[k].distance(pt)); members[host].append(b)
+        for o, g in geoms.items():
+            if g.is_empty: continue
+            c = solid(g, w=2, min_area=200)
+            if c.is_empty: c = g
+            bs = members[o] or [items[o][0]]
+            names = sorted(set(s["name"] for b in bs for s in by_b[b]))
+            pieces.append(dict(geom=c, gd=d, name="Area around " + names[0] + (f" (+{len(names) - 1} more)" if len(names) > 1 else ""), code=",".join(bs)))
+    return fill_gaps(pieces, "Not near a school building")
 
 FIELDS = ["dbn", "name", "grp", "admin", "n", "k8", "hs", "asian", "black", "hisp", "white", "multi", "native",
           "pov", "ell", "swd", "eni", "unit", "x", "y", "sup", "net", "grades"]
@@ -295,7 +344,7 @@ def build_layer(key, label, desc, pieces):
                           a=round(c.area), p=round(c.length), poly=rings(c, 10),
                           nb=[[j, round(L)] for j, L in sorted(nbr[i].items())]))
     data = dict(
-        meta=dict(year=YEAR, pulled=__import__("datetime").date.fromtimestamp(os.path.getmtime(f"{RAW}/lcgms/lcgms.csv")).strftime("%B %-d, %Y"),
+        meta=dict(year=YEAR, pulled=PULLED,
                   fields=FIELDS, layer=key, layerName=label, layerDesc=desc,
                   groups={"C": "Community superintendent", "H": "High school superintendent", "S": "District 75", "A": "District 79", "R": "Charter"},
                   dropped=[[s["dbn"], s["name"], s["n"]] for s in dropped], water_links=virtual),
@@ -327,5 +376,5 @@ if "tract" in LAYERS:
     build_layer("tract", "Census tracts", "2020 Census tracts, the blocks most often used for redistricting",
                 split_pieces(tr, lambda pr: (f"Census tract {pr.get('ctlabel')} · {pr.get('ntaname')}", pr.get("boroct2020") or ""), "Outside census tracts"))
 if "area" in LAYERS:
-    build_layer("area", "School areas", "The part of each district nearest each school building",
+    build_layer("area", "School areas", "The city blocks in each district nearest each school building",
                 school_area_pieces())

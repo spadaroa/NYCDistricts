@@ -37,6 +37,7 @@ curl -L -o raw/demo.xlsx "https://infohub.nyced.org/docs/default-source/default-
 curl -L -o raw/zones/cmjf-yawu.geojson "https://data.cityofnewyork.us/api/geospatial/cmjf-yawu?method=export&format=GeoJSON"
 curl -L -o raw/zones/t26j-jbq7.geojson "https://data.cityofnewyork.us/api/geospatial/t26j-jbq7?method=export&format=GeoJSON"
 mkdir -p raw/tracts && curl -L -o raw/tracts/63ge-mke6.geojson "https://data.cityofnewyork.us/api/geospatial/63ge-mke6?method=export&format=GeoJSON"
+mkdir -p raw/blocks && curl -L -o raw/blocks/wmsu-5muw.geojson "https://data.cityofnewyork.us/api/geospatial/wmsu-5muw?method=export&format=GeoJSON"   # 2020 Census blocks (school areas)
 curl -L -o raw/districts.geojson "https://data.cityofnewyork.us/api/geospatial/8ugf-3d8u?method=export&format=GeoJSON"
 curl -L -o raw/loc1920.json "https://data.cityofnewyork.us/resource/wg9x-4ke6.json?\$limit=5000"
 curl -G -L -o raw/facdb.json "https://data.cityofnewyork.us/resource/ji82-xba5.json" --data-urlencode "\$limit=5000" \
@@ -53,6 +54,8 @@ for k in es ms tract area; do node prep/make_presets.js $k; done
 node build.js && cp dist/index.html docs/index.html
 ```
 
+To rebuild only one layer with exactly the same schools and locations (no LCGMS roster needed), point `FROM_JSON` at an existing area-layer file, e.g. `FROM_JSON=src/data_area.json python3 prep/build_data.py raw src area`.
+
 ## Publishing
 
 - **GitHub Pages:** push this repo, then Settings → Pages → Deploy from branch → `main` / `docs`.
@@ -60,7 +63,7 @@ node build.js && cp dist/index.html docs/index.html
 
 ## Method notes
 
-- **Building blocks (choose in the Plan tab):** DOE elementary school zones; DOE middle school zones (elementary zones inside middle-school-choice districts); 2020 Census tracts; or school areas (nearest-school-building areas within each district). All are split at the official DCP district lines and cleaned of slivers; blocks count as neighbors only if they share ≥100 m of border.
+- **Building blocks (choose in the Plan tab):** DOE elementary school zones; DOE middle school zones (elementary zones inside middle-school-choice districts); 2020 Census tracts; or school areas (whole 2020 Census blocks assigned to the nearest school building within each district, so edges follow streets). All are split at the official DCP district lines and cleaned of slivers; blocks count as neighbors only if they share ≥100 m of border.
 - **Units are DOE elementary school zones** (default) (NYC Open Data, School Zones 2024–2025, Elementary). Zones that cross a community district line are split at the official DCP line, so today's districts match the official map exactly. Land outside every zone (parks, marsh) is merged into the neighboring zone in the same district. Water-separated pieces (Rockaways, islands) are linked to the nearest zone, first within their own district.
 - **Schools are placed in the zone containing their building.** Every school in a zone moves with it.
 - **Cross-district schools** (e.g., Beacon HS: District 3, located in District 2) don't change the map. Each one is counted in its administrative district while its zone is untouched. Once that zone is moved (by painting or auto-balance), the school follows the zone.

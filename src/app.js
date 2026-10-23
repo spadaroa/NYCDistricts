@@ -325,7 +325,11 @@
     const D = st.districts.filter((x) => !x.empty), n = D.length || 1;
     const E = D.reduce((a, x) => a + x.E, 0), ns = D.reduce((a, x) => a + x.ns, 0);
     const sum = st.summary;
-    return { n: D.length, E, ns, avgE: D.length ? E / n : null, avgNs: D.length ? ns / n : null,
+    const med = (xs) => { if (!xs.length) return null; const v = xs.slice().sort((a, b) => a - b), h = v.length >> 1; return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2; };
+    const avgE = D.length ? E / n : null;
+    const sdE = D.length ? Math.sqrt(D.reduce((a, x) => a + (x.E - avgE) ** 2, 0) / n) : null;
+    return { n: D.length, E, ns, avgE, avgNs: D.length ? ns / n : null,
+      medE: med(D.map((x) => x.E)), medNs: med(D.map((x) => x.ns)), sdE,
       min: D.length ? Math.min(...D.map((x) => x.E)) : null, max: D.length ? Math.max(...D.map((x) => x.E)) : null,
       gap: sum.maxDevCity, race: sum.theilH, econ: sum.theilEcon, changed: sum.changed };
   }
@@ -347,8 +351,9 @@
       tlRow("Districts", t.n, p.n, n0, n0, 0),
       tlRow("Schools", t.ns, p.ns, n0, n0, 0, 0.5, "Counted schools placed in a district"),
       tlRow("Students", t.E, p.E, n0, n0, 0, 0.5, countShort() + " placed in a district"),
-      tlRow("Students / district", t.avgE, p.avgE, n0, n0, 0, 0.5),
-      tlRow("Schools / district", t.avgNs, p.avgNs, n1, n1, 0, 0.05),
+      tlRow("Median students / district", t.medE, p.medE, n0, n0, 0, 0.5, "Half of districts have more students than this, half fewer. (The average, " + (p.avgE == null ? "–" : fmtN(p.avgE)) + ", only changes if the number of districts changes.)"),
+      tlRow("Median schools / district", t.medNs, p.medNs, n1, n1, 0, 0.05, "Half of districts have more schools than this, half fewer"),
+      tlRow("Size spread (std. dev.)", t.sdE, p.sdE, n0, n0, -1, 0.5, "How much district enrollments vary around the average; lower means more equal sizes"),
       tlRow("Smallest district", t.min, p.min, n0, n0, 0, 0.5, "Students in the smallest district"),
       tlRow("Largest district", t.max, p.max, n0, n0, 0, 0.5, "Students in the largest district"),
       tlRow("Max gap from avg", t.gap, p.gap, (v) => "±" + pct0(v), pts, -1, 0.005, "Biggest difference between any district and the average district citywide"),

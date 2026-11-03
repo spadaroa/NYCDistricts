@@ -52,32 +52,90 @@ for (a, b), L in border.items():
     if dbh >= TH and dpv >= TH:
         pairs.append(dict(a=a, b=b, dbh=round(dbh, 1), dpov=round(dpv, 1), border_m=round(L)))
 
+# Only pairs that cross a district line matter here: pairing them means redrawing the line so both zones sit in
+# one district. A zone's district = the district holding most of its area (53 zones straddle a line slightly).
+def zone_district(z):
+    c = collections.Counter()
+    for i in zones[z]:
+        c[U[i]["gd"]] += U[i]["a"]
+    return c.most_common(1)[0][0]
+for p in pairs:
+    p["crosses"] = zone_district(p["a"]) != zone_district(p["b"])
+cross = [p for p in pairs if p["crosses"]]
+
 # a school can only be paired once: choose the non-overlapping set with the largest combined gaps
 G = nx.Graph()
-for p in pairs:
+for p in cross:
     G.add_edge(p["a"], p["b"], weight=p["dbh"] + p["dpov"])
 chosen = {tuple(sorted(e)) for e in nx.max_weight_matching(G, maxcardinality=True)}
 for p in pairs:
-    p["modeled"] = (p["a"], p["b"]) in chosen or (p["b"], p["a"]) in chosen
+    p["modeled"] = tuple(sorted((p["a"], p["b"]))) in chosen
 
+# redraw: for each modeled pair, move one whole zone into its partner's district. Try both directions; keep the
+# one that leaves every district in one piece and moves fewer community-superintendent students.
+cur = [u["cur"] - 1 for u in U]
+plan = cur[:]
+def students(units):
+    return sum(sch_row[F["n"]] for i in units for sch_row in (d["schools"][k] for k in U[i]["s"]) if sch_row[F["grp"]] == "C")
+def connected(dist, plan):
+    ids = [i for i in range(len(U)) if plan[i] == dist]
+    if not ids:
+        return True
+    seen = {ids[0]}; st = [ids[0]]
+    while st:
+        a = st.pop()
+        for j, _ in U[a]["nb"]:
+            if plan[j] == dist and j not in seen:
+                seen.add(j); st.append(j)
+    return len(seen) == len(ids)
+moved = {}
+school_unit = {row[F["dbn"]]: row[F["unit"]] for row in d["schools"]}
+for p in [p for p in cross if p["modeled"]]:
+    best = None
+    for mover, keeper in ((p["a"], p["b"]), (p["b"], p["a"])):
+        to = zone_district(keeper) - 1
+        units = [i for i in zones[mover] if plan[i] != to]
+        trial = plan[:]
+        for i in units:
+            trial[i] = to
+        # both zoned schools' buildings must end up in the same district (a few buildings sit outside their own zone)
+        same = len({trial[school_unit[x]] for x in Z[p["a"]]["dbns"] + Z[p["b"]]["dbns"]}) == 1
+        if same and all(connected(dd, trial) for dd in {plan[i] for i in units}) and connected(to, trial):
+            cost = students(units)
+            if best is None or cost < best[0]:
+                best = (cost, mover, keeper, units, trial)
+    if best is None:
+        p["move"] = None
+        continue
+    cost, mover, keeper, units, trial = best
+    p["move"] = dict(zone=mover, from_district=zone_district(mover), to_district=zone_district(keeper), students=cost)
+    plan = trial
+    for i in units:
+        moved[i] = True
+
+for p in pairs:
+    if p["modeled"] and not p.get("move"):
+        p["modeled"] = False; p["not_joined"] = True   # no way to join them without splitting a district
 modeled = [p for p in pairs if p["modeled"]]
 print(f"threshold {TH} pts: {len(Z)} zones with an elementary zoned school, {len(border)} adjacent zone pairs, "
-      f"{len(pairs)} pairs meet both tests ({len({x for p in pairs for x in (p['a'], p['b'])})} zones); "
-      f"{len(modeled)} non-overlapping pairs modeled; "
-      f"{sum(1 for p in pairs if Z[p['a']]['district'] != Z[p['b']]['district'])} pairs cross a district line")
+      f"{len(pairs)} pairs meet both tests; {len(cross)} cross a district line; {len(modeled)} non-overlapping cross-district pairs modeled; "
+      f"{sum(1 for p in pairs if p.get('not_joined'))} could not be joined, {sum(p['move']['students'] for p in modeled if p.get('move'))} community supt students change district")
 
-json.dump(dict(threshold=TH, zones={z: Z[z] for z in {x for p in pairs for x in (p["a"], p["b"])}}, pairs=pairs),
+json.dump(dict(threshold=TH, zones={z: dict(Z[z], district_major=zone_district(z)) for z in {x for p in pairs for x in (p["a"], p["b"])}}, pairs=pairs),
           open("src/pairs_es.json", "w"))
 
+ALPH = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_"
 presets = json.load(open("src/presets_es.json"))
-cur = next(p for p in presets if p["id"] == "current")
-ex = dict(cur, id="pairs", name="Paired zones (25-pt gaps)",
-          desc=(f"Today's district lines, with {len(modeled)} pairs of neighboring elementary zones combined. "
-                f"Each pair's zoned schools differ by {TH:.0f}+ points in both the Black and Hispanic share and the share of "
-                f"students in poverty ({len(pairs)} such neighboring pairs exist; a school is paired only once). "
-                "A paired zone sends all its students to both schools, so each school takes on the pair's combined mix. "
-                "Compare Race H and Econ H on the Districts tab, and the within-district rows in Topline."),
-          weights=None, pairs=[[Z[p["a"]]["dbns"], Z[p["b"]]["dbns"]] for p in modeled],
+today = next(p for p in presets if p["id"] == "current")
+ex = dict(today, id="pairs", name="Cross-district zone pairs (25-pt gaps)",
+          desc=(f"Today's district lines, redrawn only where needed to pair {len(modeled)} neighboring elementary zones that sit in "
+                f"different districts and whose zoned schools differ by {TH:.0f}+ points in both the Black and Hispanic share and the share of "
+                f"students in poverty ({len(cross)} such cross-district pairs exist; a school is paired only once). For each pair, one zone "
+                "moves into its partner's district (whichever moves fewer students and keeps both districts in one piece), and the two zones "
+                "become one shared zone: each school takes on the pair's combined mix."),
+          weights=None, plan="".join(ALPH[x] for x in plan),
+          pins=[i for i in today.get("pins", []) if i not in moved],
+          pairs=[[Z[p["a"]]["dbns"], Z[p["b"]]["dbns"]] for p in modeled],
           pairZones=[[p["a"], p["b"]] for p in modeled])
 presets = [p for p in presets if p["id"] != "pairs"]
 presets.insert(1, ex)

@@ -230,3 +230,9 @@ textarea { width: 100%; min-height: 90px; font-family: ui-monospace, Menlo, mono
 .mapwrap { container-type: size; }
 .topline { max-width: calc(100% - 76px); }
 @media (min-width: 861px) { @container (max-width: 470px) { .topline { display: none; } } }
+
+/* paired zones */
+#map .pairlink { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none; opacity: 0.85; }
+#map .pairdot { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.pairnote { margin: 0; padding: 8px 10px; border: 1px dashed var(--ink); border-radius: var(--r); font-size: 13px; line-height: 1.5; }
+.pairnote .btn { margin-left: 6px; min-height: 28px; padding: 3px 8px; font-size: 12px; }

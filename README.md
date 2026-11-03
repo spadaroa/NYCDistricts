@@ -51,6 +51,7 @@ pip install pandas openpyxl shapely lxml
 python3 prep/geocode.py raw          # NYC GeoSearch, cached in raw/geocode_cache.json
 python3 prep/build_data.py raw src            # writes src/data_{es,ms,tract,area}.json
 for k in es ms tract area; do node prep/make_presets.js $k; done
+python3 prep/make_pairs.py           # adds the "Paired zones (25-pt gaps)" example to presets_es.json (optional: threshold, e.g. 30)
 node build.js && cp dist/index.html docs/index.html
 ```
 

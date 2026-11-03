@@ -14,7 +14,7 @@
   const S = {
     mode: "C", K: 32, dots: false, lines: false, level: "zone", lock: true, plan: null, presetId: "current",
     active: 0, tool: "pan", brush: 1, colorBy: "district",
-    pin: new Uint8Array(0), undo: [], redo: [], model: null, base: null, stats: null, sort: { key: "d", dir: 1 },
+    pin: new Uint8Array(0), pairs: null, pairZones: null, undo: [], redo: [], model: null, base: null, stats: null, sort: { key: "d", dir: 1 },
   };
 
   // ---------- colors ----------
@@ -102,7 +102,29 @@
   const gCoast = document.createElementNS(SVGNS, "g"), gLabels = document.createElementNS(SVGNS, "g");
   const hoverPath = document.createElementNS(SVGNS, "path"); hoverPath.setAttribute("class", "hover");
   const gOfficial = document.createElementNS(SVGNS, "g"), gDots = document.createElementNS(SVGNS, "g");
-  svg.append(gCells, gCoast, gEdges, gOfficial, gLabels, gDots, hoverPath);
+  const gPairs = document.createElementNS(SVGNS, "g"); gPairs.setAttribute("class", "pairs");
+  svg.append(gCells, gCoast, gEdges, gOfficial, gPairs, gLabels, gDots, hoverPath);
+  // where each zone (by its zone code) sits, for drawing pair links
+  const zoneUnits = {}; DATA.units.forEach((u, i) => { if (u.z) (zoneUnits[u.z] = zoneUnits[u.z] || []).push(i); });
+  const zoneCenter = (z) => { const us = zoneUnits[z] || []; let a = 0, x = 0, y = 0; for (const i of us) { const w = DATA.units[i].a; a += w; x += DATA.units[i].x * w; y += DATA.units[i].y * w; } return a ? [x / a, y / a] : null; };
+  const pairOfZone = {};
+  function drawPairs() {
+    gPairs.textContent = ""; for (const k in pairOfZone) delete pairOfZone[k];
+    if (!S.pairs || !S.pairZones) return;
+    S.pairZones.forEach(([a, b], k) => {
+      pairOfZone[a] = { other: b, k }; pairOfZone[b] = { other: a, k };
+      const p = zoneCenter(a), q = zoneCenter(b); if (!p || !q) return;
+      const l = document.createElementNS(SVGNS, "line");
+      l.setAttribute("x1", p[0]); l.setAttribute("y1", p[1]); l.setAttribute("x2", q[0]); l.setAttribute("y2", q[1]); l.setAttribute("class", "pairlink");
+      gPairs.appendChild(l);
+      for (const c of [p, q]) { const e = document.createElementNS(SVGNS, "circle"); e.setAttribute("cx", c[0]); e.setAttribute("cy", c[1]); e.setAttribute("class", "pairdot"); gPairs.appendChild(e); }
+    });
+    sizePairs();
+  }
+  function sizePairs() {
+    const s = Math.max(view.w / Math.max(1, svg.clientWidth), view.h / Math.max(1, svg.clientHeight));
+    gPairs.querySelectorAll("circle").forEach((c) => c.setAttribute("r", (3.5 * s).toFixed(1)));
+  }
   const ringD = (r) => { let s = "M" + r[0] + " " + r[1]; for (let k = 2; k < r.length; k += 2) s += "L" + r[k] + " " + r[k + 1]; return s + "Z"; };
   const lineD = (r) => { let s = "M" + r[0] + " " + r[1]; for (let k = 2; k < r.length; k += 2) s += "L" + r[k] + " " + r[k + 1]; return s; };
   const cellEls = [], cellD = [];
@@ -148,6 +170,7 @@
     const fs = Math.max(v.w / svg.clientWidth, v.h / svg.clientHeight) * 15;
     gLabels.setAttribute("font-size", fs.toFixed(0));
     if (S.dots) { cancelAnimationFrame(sizeDots.raf); sizeDots.raf = requestAnimationFrame(sizeDots); }
+    if (gPairs.childElementCount) sizePairs();
   }
   function fit() {
     const r = svg.getBoundingClientRect(); const ar = r.width / Math.max(1, r.height);
@@ -167,10 +190,31 @@
   }
 
   // ---------- model / stats ----------
+  // Paired zones: both zones' students attend both schools, so each paired school takes on the pair's combined
+  // mix (its own enrollment stays the same). Applied to the school data before the model is built.
+  const BLEND = ["asian", "black", "hisp", "white", "multi", "native", "pov", "ell", "swd"];
+  const dbnIndex = {}; DATA.schools.forEach((s, si) => (dbnIndex[s[F.dbn]] = si));
+  function scenarioData() {
+    if (!S.pairs || !S.pairs.length) return DATA;
+    const schools = DATA.schools.slice();
+    for (const [A, B] of S.pairs) {
+      const ids = [...A, ...B].map((d) => dbnIndex[d]).filter((i) => i != null);
+      const n = ids.reduce((a, i) => a + DATA.schools[i][F.n], 0); if (!n) continue;
+      const tot = {}; for (const f of BLEND) tot[f] = ids.reduce((a, i) => a + DATA.schools[i][F[f]], 0);
+      const eni = ids.reduce((a, i) => a + DATA.schools[i][F.eni] * DATA.schools[i][F.n], 0) / n;
+      for (const i of ids) {
+        const row = DATA.schools[i].slice(), own = row[F.n];
+        for (const f of BLEND) row[F[f]] = (tot[f] / n) * own;
+        row[F.eni] = eni; schools[i] = row;
+      }
+    }
+    return Object.assign({}, DATA, { schools });
+  }
   function rebuildModel() {
-    S.model = E.buildModel(DATA, S.mode);
-    S.base = E.stats(S.model, E.currentPlan(S.model), 32, { lock: true, pin: new Uint8Array(N).fill(1) });
-    styleDots();
+    S.model = E.buildModel(scenarioData(), S.mode);
+    const todayModel = S.pairs && S.pairs.length ? E.buildModel(DATA, S.mode) : S.model;
+    S.base = E.stats(todayModel, E.currentPlan(todayModel), 32, { lock: true, pin: new Uint8Array(N).fill(1) });
+    styleDots(); drawPairs();
   }
   function recompute() {
     if (S.active >= S.K) S.active = 0;
@@ -363,7 +407,7 @@
     return { n: D.length, E, ns, avgE, avgNs: D.length ? ns / n : null,
       medE: med(D.map((x) => x.E)), medNs: med(D.map((x) => x.ns)), sdE,
       min: D.length ? Math.min(...D.map((x) => x.E)) : null, max: D.length ? Math.max(...D.map((x) => x.E)) : null,
-      gap: sum.maxDevCity, race: sum.theilH, econ: sum.theilEcon, changed: sum.changed };
+      gap: sum.maxDevCity, race: sum.theilH, econ: sum.theilEcon, changed: sum.changed, wr: sum.withinRace, we: sum.withinEcon };
   }
   // dir: 1 = higher is better, -1 = lower is better, 0 = neither
   function tlRow(label, a, b, fmt, dfmt, dir, tol, title) {
@@ -389,6 +433,8 @@
       tlRow("Max gap from avg", t.gap, p.gap, (v) => "±" + pct0(v), pts, -1, 0.005, "Biggest difference between any district and the average district citywide"),
       tlRow("Race segregation (H)", t.race, p.race, h3, h3, -1, 0.0005, "Theil's H across districts: 0 = every district matches the city mix"),
       tlRow("Econ segregation (H)", t.econ, p.econ, h3, h3, -1, 0.0005, "Theil's H for poverty across districts: 0 = every district has the city poverty rate"),
+      tlRow("Race H within districts", t.wr, p.wr, h3, h3, -1, 0.0005, "How separated students are across the schools inside each district (average over districts)"),
+      tlRow("Econ H within districts", t.we, p.we, h3, h3, -1, 0.0005, "How separated students in poverty are across the schools inside each district (average over districts)"),
       `<tr title="Counted students whose school would be in a different district than today"><td>Students moved</td><td>–</td><td class="p">${pct0(p.changed)}</td><td class="dl">${p.changed > 0 ? fmtN(p.changed * S.stats.summary.totE) : "–"}</td></tr>`,
     ].join("");
     const d = S.active, a = d < 32 ? S.base.districts[d] : null, b = S.stats.districts[d];
@@ -524,9 +570,11 @@
     const more = u.s.length > 8 ? `<li class="s">+${u.s.length - 8} more</li>` : "";
     const e2 = m.E[i];
     const sups = [...new Set(u.s.map((si) => DATA.schools[si][F.sup]).filter(Boolean))];
+    const pz = u.z && pairOfZone[u.z];
+    const pairTxt = pz ? (() => { const o = zoneUnits[pz.other] && DATA.units[zoneUnits[pz.other][0]]; return `<div class="s"><b>Paired</b> with ${o ? o.id.replace(/^Elementary zone of /, "") : pz.other}: both zones share both schools, shown with the pair's combined mix.</div>`; })() : "";
     const outs = u.s.filter((si) => DATA.schools[si][F.admin] && DATA.schools[si][F.admin] !== u.cur);
     const where = outs.length ? `<div class="s">${outs.map((si) => `${DATA.schools[si][F.dbn]} reports to District ${DATA.schools[si][F.admin]}`).join("; ")}${S.pin[i] ? " and is counted there until this zone is moved" : "; it now moves with this zone"}.</div>` : "";
-    tip.innerHTML = `<b>${d >= 0 ? "District " + (d + 1) : "Unassigned"}</b> <span class="s">· today District ${u.cur} · ${E.BORO_NAMES[u.b]}</span><div class="s">${u.id}${u.z ? " (" + u.z + ")" : ""}</div>` + where +
+    tip.innerHTML = `<b>${d >= 0 ? "District " + (d + 1) : "Unassigned"}</b> <span class="s">· today District ${u.cur} · ${E.BORO_NAMES[u.b]}</span><div class="s">${u.id}${u.z ? " (" + u.z + ")" : ""}</div>` + pairTxt + where +
       (e2 ? `<div>${fmtN(e2)} ${countShort()} in this zone · ${pct0(m.pov[i] / e2)} poverty · ${pct0(m.ell[i] / e2)} ELL · ${pct0(m.swd[i] / e2)} SWD</div>` : `<div class="s">No ${countShort()} in this zone</div>`) +
       (sups.length ? `<div class="s">Superintendent${sups.length > 1 ? "s" : ""}: ${sups.join("; ")}</div>` : "") + `<ul>${list}${more}</ul>`;
     placeTip(e);
@@ -584,6 +632,13 @@
     S.mode = m; rebuildModel(); renderGroups(); recompute();
   });
 
+  function renderPairNote() {
+    const el = $("pairNote"); if (!el) return;
+    if (!S.pairs) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = `<b>${S.pairs.length} zone pairs on.</b> Linked zones share both schools, so each school shows the pair's combined mix. <button class="btn" id="pairsOff">Turn off pairs</button>`;
+    $("pairsOff").onclick = () => { pushUndoAll(); S.pairs = null; S.pairZones = null; rebuildModel(); renderPairNote(); markEdited(); recompute(); toast("Zone pairs turned off. Undo (Ctrl+Z) turns them back on."); };
+  }
   // ---------- presets ----------
   function syncPresetSelect() {
     const sel = $("presetSel");
@@ -623,7 +678,9 @@
     pushUndoAll();
     S.presetId = id; S.K = p.K; S.plan = E.decodePlan(p.plan, N);
     S.pin = new Uint8Array(N); for (const i of p.pins || []) S.pin[i] = 1;
-    if (p.mode !== S.mode) { S.mode = p.mode; rebuildModel(); renderGroups(); }
+    const hadPairs = !!S.pairs; S.pairs = p.pairs || null; S.pairZones = p.pairZones || null;
+    if (p.mode !== S.mode || hadPairs || S.pairs) { S.mode = p.mode; rebuildModel(); renderGroups(); }
+    renderPairNote();
     S.lock = true; $("lockBoro").checked = true;
     if (p.weights) for (const [k, el] of Object.entries(W)) { $(el).value = p.weights[k] || 0; }
     syncWeights(); syncPresetSelect(); assignColors(); recompute();
@@ -632,7 +689,7 @@
     abortOptimizer();
     if (!S.plan) return;
     const prev = Int16Array.from(S.plan);
-    S.undo.push({ whole: prev, pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId, mode: S.mode, lock: S.lock });
+    S.undo.push({ whole: prev, pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId, mode: S.mode, lock: S.lock, pairs: S.pairs, pairZones: S.pairZones });
     if (S.undo.length > 200) S.undo.shift();
     S.redo = [];
   }
@@ -643,8 +700,9 @@
     const top = from[from.length - 1];
     if (top && top.whole) {
       abortOptimizer();
-      from.pop(); to.push({ whole: Int16Array.from(S.plan), pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId, mode: S.mode, lock: S.lock });
+      from.pop(); to.push({ whole: Int16Array.from(S.plan), pin: Uint8Array.from(S.pin), K: S.K, id: S.presetId, mode: S.mode, lock: S.lock, pairs: S.pairs, pairZones: S.pairZones });
       S.plan = top.whole; S.pin = top.pin; S.K = top.K; S.presetId = top.id;
+      if (top.pairs !== S.pairs) { S.pairs = top.pairs || null; S.pairZones = top.pairZones || null; rebuildModel(); renderPairNote(); }
       if (top.lock != null) { S.lock = top.lock; $("lockBoro").checked = S.lock; }
       if (top.mode && top.mode !== S.mode) { S.mode = top.mode; rebuildModel(); renderGroups(); }
       syncPresetSelect(); assignColors(); recompute(); return;
@@ -736,6 +794,7 @@
     S.K = +m[2]; S.lock = m[3] === "1"; $("lockBoro").checked = S.lock;
     S.plan = plan; S.pin = new Uint8Array(N);
     for (const t of m[4].split(",")) if (t) S.pin[parseInt(t, 36)] = 1;
+    if (S.pairs) { S.pairs = null; S.pairZones = null; rebuildModel(); renderPairNote(); }
     S.presetId = "custom"; syncPresetSelect(); assignColors(); recompute(); return true;
   }
   async function copy(text, what) {
@@ -758,7 +817,7 @@
     a.download = "nyc-district-plan.csv"; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
-  function save() { try { localStorage.setItem(STORE, JSON.stringify({ code: code(), id: S.presetId })); } catch (_) {} }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify({ code: code(), id: S.presetId, pairs: !!S.pairs })); } catch (_) {} }
   function restore() {
     try {
       if (window.PENDING_CODE && loadCode(window.PENDING_CODE)) return true;
@@ -767,7 +826,12 @@
       if (h && loadCode(decodeURIComponent(h[1]))) return true;
       const v = JSON.parse(localStorage.getItem(STORE) || "null");
       if (v && v.id && v.id !== "custom" && PRESETS.some((p) => p.id === v.id)) { loadPreset(v.id); return true; }
-      if (v && v.code) return loadCode(v.code, true);
+      if (v && v.code) {
+        const ok = loadCode(v.code, true);
+        const pp = v.pairs && PRESETS.find((p) => p.pairs);
+        if (ok && pp) { S.pairs = pp.pairs; S.pairZones = pp.pairZones; rebuildModel(); renderPairNote(); recompute(); }
+        return ok;
+      }
     } catch (_) {}
     return false;
   }

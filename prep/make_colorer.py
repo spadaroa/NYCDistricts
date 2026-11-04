@@ -1,6 +1,6 @@
-"""Builds tools/district-colorer/index.html: a standalone map of the 32 NYC community school districts
+"""Builds docs/district-colorer/index.html: a standalone map of the 32 NYC community school districts
 where you select whole districts and set their colors. Self-contained (no server, no network needed except
-optional Google Fonts). Not part of the GitHub Pages site, which only serves /docs.
+optional Google Fonts). GitHub Pages serves it at /district-colorer/, separate from the district builder at /.
 
 Usage: python3 prep/make_colorer.py raw
 """
@@ -53,7 +53,7 @@ data = dict(districts=districts, boros=boros, bbox=[round(minx), round(miny), ro
 
 here = os.path.dirname(os.path.abspath(__file__))
 tpl = open(os.path.join(here, "colorer_template.html")).read()
-out = os.path.join(here, "..", "tools", "district-colorer", "index.html")
+out = os.path.join(here, "..", "docs", "district-colorer", "index.html")
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, "w").write(tpl.replace("/*__DATA__*/null", json.dumps(data, separators=(",", ":"))))
 print("wrote", out, os.path.getsize(out) // 1024, "KB")

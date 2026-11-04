@@ -80,3 +80,10 @@ To rebuild only one layer with exactly the same schools and locations (no LCGMS 
 - NYC Open Data: School Zones 2024–2025 (Elementary School) (cmjf-yawu)
 - NYC Planning GeoSearch geocoder
 - NYC Open Data: 2019–20 School Locations (wg9x-4ke6), Facilities Database (ji82-xba5), School Districts (8ugf-3d8u)
+
+## District color map (not part of the published site)
+
+`tools/district-colorer/index.html` is a separate, standalone map of the 32 community school districts: select whole districts
+(click, Shift/Ctrl-click, by borough, or type a list like `1, 4-6`), color them, label the colors, and download a PNG or SVG
+with a title and legend. Open the file directly in a browser; colors are saved in that browser and can be copied as settings.
+It lives outside `/docs`, so GitHub Pages doesn't serve it. Rebuild it with `python3 prep/make_colorer.py raw`.

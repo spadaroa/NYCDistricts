@@ -22,11 +22,11 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app { display: grid; grid-template-columns: minmax(0, 1fr) 360px; height: 100%; }
-.mapwrap { position: relative; background: var(--water); min-height: 0; overflow: hidden; }
+.mapwrap { position: relative; background: var(--mapbg, var(--water)); min-height: 0; overflow: hidden; }
 #map { width: 100%; height: 100%; display: block; user-select: none; touch-action: none; }
-#map .dist { stroke: #ffffff; stroke-width: 1.2; vector-effect: non-scaling-stroke; cursor: pointer; }
+#map .dist { stroke: var(--dline, #ffffff); stroke-width: var(--dwidth, 1.2); vector-effect: non-scaling-stroke; cursor: pointer; }
 #map .dist:hover { filter: brightness(0.94); }
-#map .boro { fill: none; stroke: #3d4a5a; stroke-width: 1.6; vector-effect: non-scaling-stroke; pointer-events: none; }
+#map .boro { fill: none; stroke: var(--bline, #3d4a5a); stroke-width: 1.6; vector-effect: non-scaling-stroke; pointer-events: none; }
 #map .selring { fill: none; stroke: var(--sel); stroke-width: 3; vector-effect: non-scaling-stroke; pointer-events: none; }
 #map .lbl { font-family: var(--font-num); font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; paint-order: stroke; stroke-width: 3px; stroke-linejoin: round; }
 .hint { position: absolute; left: 12px; top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--muted); }
@@ -56,6 +56,11 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: 
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 input[type=text].wide { width: 100%; border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px; }
 textarea { width: 100%; min-height: 70px; font: 11px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: var(--r); padding: 6px; }
+.ctl { display: grid; grid-template-columns: 112px auto 1fr auto; gap: 8px; align-items: center; font-size: 13px; margin-top: 8px; }
+.ctl input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.ctl input[type=range] { width: 100%; min-width: 0; }
+.ctl span { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+#labelSize { grid-column: 2 / 4; }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
 [hidden] { display: none !important; }
 @media (max-width: 820px) { .app { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; } aside { border-left: 0; border-top: 1px solid var(--line); } }
@@ -110,6 +115,13 @@ textarea { width: 100%; min-height: 70px; font: 11px ui-monospace, Menlo, monosp
       <label class="check"><input type="checkbox" id="showLabels" checked> District numbers</label>
       <label class="check"><input type="checkbox" id="showBoros" checked> Borough outlines</label>
       <label class="check"><input type="checkbox" id="greyUnset" checked> Light gray for uncolored districts</label>
+      <div class="ctl"><label for="labelSize">Number size</label><input type="range" id="labelSize" min="8" max="40" step="1" value="16"><span id="labelSizeV">16 px</span></div>
+      <div class="ctl"><label for="labelColor">Number color</label><input type="color" id="labelColor" value="#17202b"><label class="check"><input type="checkbox" id="labelAuto" checked> Auto contrast</label></div>
+      <div class="ctl"><label for="haloColor">Number outline</label><input type="color" id="haloColor" value="#ffffff"><input type="range" id="haloWidth" min="0" max="8" step="0.5" value="3" aria-label="Number outline width"><span id="haloWidthV">3 px</span></div>
+      <div class="ctl"><label for="lineColor">District lines</label><input type="color" id="lineColor" value="#ffffff"><input type="range" id="lineWidth" min="0.5" max="5" step="0.1" value="1.2" aria-label="District line width"><span id="lineWidthV">1.2 px</span></div>
+      <div class="ctl"><label for="boroColor">Borough outlines</label><input type="color" id="boroColor" value="#3d4a5a"></div>
+      <div class="ctl"><label for="bgColor">Background</label><input type="color" id="bgColor" value="#e4ecf3"><label class="check"><input type="checkbox" id="bgExport"> Use in export</label></div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="resetStyle">Reset styling</button></div>
       <div style="margin-top:8px"><label for="title" style="font-size:13px">Title for export</label><input id="title" class="wide" type="text" placeholder="e.g. Pilot districts, 2026–27"></div>
     </section>
 
@@ -141,7 +153,7 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
                    "#ffd92f", "#e5c494", "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#1f78b4", "#33a02c",
                    "#e31a1c", "#ff7f00", "#6a3d9a", "#b15928", "#08519c", "#006d2c", "#525252", "#d9d9d9"];
   const BNAME = { M: "Manhattan", X: "Bronx", K: "Brooklyn", Q: "Queens", R: "Staten Island" };
-  const S = { color: {}, labels: {}, sel: new Set(), showLabels: true, showBoros: true, greyUnset: true, title: "" };
+  const S = { color: {}, labels: {}, sel: new Set(), showLabels: true, showBoros: true, greyUnset: true, title: "", labelSize: 16, lineColor: "#ffffff", lineWidth: 1.2, boroColor: "#3d4a5a", labelColor: "#17202b", labelAuto: true, haloColor: "#ffffff", haloWidth: 3, bgColor: "#e4ecf3", bgExport: false };
 
   // ---------- map ----------
   const svg = $("map");
@@ -163,7 +175,7 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
   function setView(v) {
     view = v; svg.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
     const s = Math.max(v.w / Math.max(1, svg.clientWidth), v.h / Math.max(1, svg.clientHeight));
-    gL.setAttribute("font-size", (16 * s).toFixed(0)); gL.querySelectorAll("text").forEach((t) => t.style.strokeWidth = (3 * s).toFixed(1) + "px");
+    gL.setAttribute("font-size", (S.labelSize * s).toFixed(0)); gL.querySelectorAll("text").forEach((t) => t.style.strokeWidth = (S.haloWidth * s).toFixed(1) + "px");
   }
   function fit() {
     const r = svg.getBoundingClientRect(), ar = r.width / Math.max(1, r.height);
@@ -205,6 +217,9 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
   const lum = (hex) => { const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
   const inkFor = (hex) => (lum(hex) < 0.25 ? "#ffffff" : "#17202b");
   const haloFor = (hex) => (lum(hex) < 0.25 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.85)");
+  // number color/outline: auto picks dark or light for contrast; otherwise the chosen colors. A custom outline applies in both modes.
+  const labInk = (f) => (S.labelAuto ? inkFor(f) : S.labelColor);
+  const labHalo = (f) => (S.labelAuto && S.haloColor === "#ffffff" ? haloFor(f) : S.haloColor);
   const fillOf = (d) => S.color[d] || (S.greyUnset ? "#dfe4ea" : "#ffffff");
 
   // ---------- panel ----------
@@ -235,6 +250,18 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
   $("showLabels").onchange = (e) => { S.showLabels = e.target.checked; render(); };
   $("showBoros").onchange = (e) => { S.showBoros = e.target.checked; render(); };
   $("greyUnset").onchange = (e) => { S.greyUnset = e.target.checked; render(); };
+  const num = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
+  $("labelSize").oninput = (e) => { S.labelSize = num(e.target.value, 8, 40, 16); setView(view); render(); };
+  $("lineColor").oninput = (e) => { S.lineColor = e.target.value; render(); };
+  $("lineWidth").oninput = (e) => { S.lineWidth = num(e.target.value, 0.5, 5, 1.2); render(); };
+  $("boroColor").oninput = (e) => { S.boroColor = e.target.value; render(); };
+  $("labelColor").oninput = (e) => { S.labelColor = e.target.value; S.labelAuto = false; $("labelAuto").checked = false; render(); };
+  $("labelAuto").onchange = (e) => { S.labelAuto = e.target.checked; render(); };
+  $("haloColor").oninput = (e) => { S.haloColor = e.target.value; render(); };
+  $("haloWidth").oninput = (e) => { S.haloWidth = num(e.target.value, 0, 8, 3); setView(view); render(); };
+  $("bgColor").oninput = (e) => { S.bgColor = e.target.value; render(); };
+  $("bgExport").onchange = (e) => { S.bgExport = e.target.checked; save(); };
+  $("resetStyle").onclick = () => { const k = ["labelSize", "lineColor", "lineWidth", "boroColor", "labelColor", "labelAuto", "haloColor", "haloWidth", "bgColor", "bgExport"]; const o = JSON.parse(cfg()); k.forEach((x) => delete o[x]); apply(o); render(); };
   $("title").oninput = (e) => { S.title = e.target.value; save(); };
 
   function usedColors() {
@@ -262,9 +289,11 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
     for (const d in els) {
       const e = els[d], f = fillOf(d);
       e.p.style.fill = f; e.r.style.display = S.sel.has(+d) ? "" : "none";
-      e.l.style.fill = inkFor(f); e.l.style.stroke = haloFor(f); e.l.style.display = S.showLabels ? "" : "none";
+      e.l.style.fill = labInk(f); e.l.style.stroke = labHalo(f); e.l.style.display = S.showLabels ? "" : "none";
     }
     gB.style.display = S.showBoros ? "" : "none";
+    svg.style.setProperty("--dline", S.lineColor); svg.style.setProperty("--dwidth", S.lineWidth); svg.style.setProperty("--bline", S.boroColor); document.querySelector(".mapwrap").style.setProperty("--mapbg", S.bgColor); $("haloWidthV").textContent = S.haloWidth + " px";
+    $("labelSizeV").textContent = S.labelSize + " px"; $("lineWidthV").textContent = S.lineWidth.toFixed(1) + " px";
     renderSel(); renderLegend(); save();
   }
 
@@ -273,14 +302,14 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
     const W = 1600, mapH = Math.round(W * full.h / full.w), titleH = S.title ? 70 : 0;
     const used = [...usedColors()].filter(([c]) => S.labels[c]);
     const legH = used.length ? 30 + used.length * 34 : 0;
-    const H = titleH + mapH + legH + 20, k = W / full.w, fs = Math.round(26);
+    const H = titleH + mapH + legH + 20, k = W / full.w, fs = Math.round(26 * S.labelSize / 16);
     const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    let o = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>`;
+    let o = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="${S.bgExport ? S.bgColor : "#ffffff"}"/>`;
     if (S.title) o += `<text x="30" y="48" font-family="Public Sans, Arial, sans-serif" font-size="34" font-weight="700" fill="#17202b">${esc(S.title)}</text>`;
     o += `<g transform="translate(0 ${titleH}) scale(${k}) translate(${-full.x} ${-full.y})">`;
-    for (const d of DATA.districts) o += `<path d="${d.path}" fill="${fillOf(d.d)}" stroke="#ffffff" stroke-width="${1.4 / k}"/>`;
-    if (S.showBoros) for (const b in DATA.boros) o += `<path d="${DATA.boros[b]}" fill="none" stroke="#3d4a5a" stroke-width="${1.8 / k}"/>`;
-    if (S.showLabels) for (const d of DATA.districts) { const f = fillOf(d.d); o += `<text x="${d.lx}" y="${d.ly}" font-family="Barlow Condensed, Arial Narrow, Arial, sans-serif" font-weight="700" font-size="${fs / k}" text-anchor="middle" dominant-baseline="central" fill="${inkFor(f)}" stroke="${haloFor(f)}" stroke-width="${3 / k}" paint-order="stroke">${d.d}</text>`; }
+    for (const d of DATA.districts) o += `<path d="${d.path}" fill="${fillOf(d.d)}" stroke="${S.lineColor}" stroke-width="${(S.lineWidth * 1.2) / k}" stroke-linejoin="round"/>`;
+    if (S.showBoros) for (const b in DATA.boros) o += `<path d="${DATA.boros[b]}" fill="none" stroke="${S.boroColor}" stroke-width="${1.8 / k}"/>`;
+    if (S.showLabels) for (const d of DATA.districts) { const f = fillOf(d.d); o += `<text x="${d.lx}" y="${d.ly}" font-family="Barlow Condensed, Arial Narrow, Arial, sans-serif" font-weight="700" font-size="${fs / k}" text-anchor="middle" dominant-baseline="central" fill="${labInk(f)}" stroke="${labHalo(f)}" stroke-width="${(S.haloWidth * 26 / 16) / k}" paint-order="stroke">${d.d}</text>`; }
     o += `</g>`;
     if (used.length) {
       let y = titleH + mapH + 20;
@@ -305,10 +334,18 @@ const DATA = {"districts":[{"d":1,"b":"M","path":"M2266 -2210L2395 -2944L2359 -2
   };
 
   // ---------- save / load ----------
-  const cfg = () => JSON.stringify({ color: S.color, labels: S.labels, title: S.title, showLabels: S.showLabels, showBoros: S.showBoros, greyUnset: S.greyUnset });
+  const cfg = () => JSON.stringify({ color: S.color, labels: S.labels, title: S.title, showLabels: S.showLabels, showBoros: S.showBoros, greyUnset: S.greyUnset, labelSize: S.labelSize, lineColor: S.lineColor, lineWidth: S.lineWidth, boroColor: S.boroColor, labelColor: S.labelColor, labelAuto: S.labelAuto, haloColor: S.haloColor, haloWidth: S.haloWidth, bgColor: S.bgColor, bgExport: S.bgExport });
   function apply(o) {
     S.color = {}; for (const k in o.color || {}) if (els[k] && /^#[0-9a-f]{6}$/i.test(o.color[k])) S.color[k] = o.color[k].toLowerCase();
     S.labels = o.labels || {}; S.title = o.title || ""; S.showLabels = o.showLabels !== false; S.showBoros = o.showBoros !== false; S.greyUnset = o.greyUnset !== false;
+    const hex = (v, d) => (/^#[0-9a-f]{6}$/i.test(v || "") ? v.toLowerCase() : d);
+    S.labelSize = num(o.labelSize ?? 16, 8, 40, 16); S.lineWidth = num(o.lineWidth ?? 1.2, 0.5, 5, 1.2);
+    S.lineColor = hex(o.lineColor, "#ffffff"); S.boroColor = hex(o.boroColor, "#3d4a5a");
+    S.labelColor = hex(o.labelColor, "#17202b"); S.labelAuto = o.labelAuto !== false; S.haloColor = hex(o.haloColor, "#ffffff");
+    S.haloWidth = num(o.haloWidth ?? 3, 0, 8, 3); S.bgColor = hex(o.bgColor, "#e4ecf3"); S.bgExport = !!o.bgExport;
+    $("labelColor").value = S.labelColor; $("labelAuto").checked = S.labelAuto; $("haloColor").value = S.haloColor; $("haloWidth").value = S.haloWidth;
+    $("bgColor").value = S.bgColor; $("bgExport").checked = S.bgExport;
+    $("labelSize").value = S.labelSize; $("lineWidth").value = S.lineWidth; $("lineColor").value = S.lineColor; $("boroColor").value = S.boroColor; setView(view);
     $("title").value = S.title; $("showLabels").checked = S.showLabels; $("showBoros").checked = S.showBoros; $("greyUnset").checked = S.greyUnset;
   }
   function save() { const c = cfg(); if (document.activeElement !== $("cfg")) $("cfg").value = c; try { localStorage.setItem(STORE, c); } catch (_) {} }
